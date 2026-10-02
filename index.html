@@ -1034,7 +1034,14 @@
           }
         }
 
-        function launchUrlFor(row, target = '') {
+        async function launchUrlFor(row, target = '', engine = '') {
+          if (engine === 'rammerhead') {
+            const result = await api('/api/proxy/rammerhead/launch', {
+              method: 'POST',
+              body: JSON.stringify({ target: target || 'https://example.com' })
+            });
+            return result.url;
+          }
           const encodedTarget = encodeURIComponent(target || 'https://example.com');
           return row.launch.includes('{url}')
             ? row.launch.replace('{url}', encodedTarget)
@@ -1048,7 +1055,7 @@
           const row = (state.domains[fastest.groupId] || [])[fastest.index];
           if (!row) throw new Error('The selected proxy route is no longer configured.');
           renderEngineCards(fastest.groupId);
-          return { url: launchUrlFor(row, target), groupId: fastest.groupId, latency: fastest.latency };
+          return { url: await launchUrlFor(row, target, fastest.groupId), groupId: fastest.groupId, latency: fastest.latency };
         }
 
         async function resolveGroupRoute(groupId, target = '') {
@@ -1056,7 +1063,7 @@
           const fastest = health.results.filter((result) => result.latency !== null).sort((left, right) => left.latency - right.latency)[0];
           if (fastest) {
             const row = (state.domains[groupId] || [])[fastest.index];
-            if (row) return launchUrlFor(row, target);
+            if (row) return launchUrlFor(row, target, groupId);
           }
           throw new Error('No healthy domain responded for this group.');
         }

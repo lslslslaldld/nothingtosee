@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const requiredPackages = [
+  '@mercuryworkshop/bare-as-module3',
   '@mercuryworkshop/scramjet',
   '@titaniumnetwork-dev/ultraviolet',
   '@tomphttp/bare-server-node',

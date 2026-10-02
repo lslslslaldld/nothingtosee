@@ -4,8 +4,11 @@ const path = require('path');
 const crypto = require('crypto');
 const net = require('net');
 const { promisify } = require('util');
+const { spawn } = require('child_process');
+const { createBareServer } = require('@tomphttp/bare-server-node');
 
 const PORT = Number(process.env.PORT || 3000);
+const RAMMERHEAD_PORT = Number(process.env.RAMMERHEAD_PORT || 8080);
 const ROOT = __dirname;
 const DATA_DIR = process.env.POLARIS_DATA_DIR || path.join(ROOT, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'polaris.json');
@@ -13,6 +16,9 @@ const PBKDF2 = promisify(crypto.pbkdf2);
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 const sessions = new Map();
 let signupQueue = Promise.resolve();
+let rammerheadProcess = null;
+const bareServer = createBareServer('/bare/');
+const engineStatus = { rammerhead: false, ultraviolet: true, scramjet: true };
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'application/javascript; charset=utf-8',
@@ -23,8 +29,88 @@ const MIME = {
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.ico': 'image/x-icon',
-  '.txt': 'text/plain; charset=utf-8'
+  '.txt': 'text/plain; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.wasm': 'application/wasm'
 };
+const ENGINE_ASSET_ROOTS = [
+  ['/uv/', path.join(ROOT, 'node_modules/@titaniumnetwork-dev/ultraviolet/dist')],
+  ['/scramjet/', path.join(ROOT, 'node_modules/@mercuryworkshop/scramjet/dist')],
+  ['/bare-mux/', path.join(ROOT, 'node_modules/@mercuryworkshop/bare-mux/dist')],
+  ['/bare-as-module3/', path.join(ROOT, 'node_modules/@mercuryworkshop/bare-as-module3/dist')]
+];
+const UV_ASSETS = new Map([
+  ['/uv.bundle.js', 'uv.bundle.js'],
+  ['/uv.client.js', 'uv.client.js'],
+  ['/uv.handler.js', 'uv.handler.js'],
+  ['/uv.config.js', 'uv.config.js']
+].map(([url, file]) => [url, path.join(ROOT, 'node_modules/@titaniumnetwork-dev/ultraviolet/dist', file)]));
+
+function sendEngineAsset(res, pathname) {
+  if (pathname === '/uv.sw.js') {
+    res.writeHead(200, { 'Content-Type': MIME['.js'], 'Service-Worker-Allowed': '/service/', 'Cache-Control': 'no-cache' });
+    res.end("importScripts('/uv.bundle.js', '/uv.config.js', '/uv/uv.sw.js');\nconst worker = new UVServiceWorker();\nself.addEventListener('fetch', event => { if (worker.route(event)) event.respondWith(worker.fetch(event)); });");
+    return true;
+  }
+  if (pathname === '/scramjet.sw.js') {
+    res.writeHead(200, { 'Content-Type': MIME['.js'], 'Service-Worker-Allowed': '/', 'Cache-Control': 'no-cache' });
+    res.end("importScripts('/scramjet/scramjet.all.js');\nconst { ScramjetServiceWorker } = self.$scramjetLoadWorker();\nconst worker = new ScramjetServiceWorker();\nself.addEventListener('fetch', event => { event.respondWith((async () => { await worker.loadConfig(); return worker.route(event) ? worker.fetch(event) : fetch(event.request); })()); });");
+    return true;
+  }
+
+  let file = UV_ASSETS.get(pathname);
+  if (!file) {
+    for (const [prefix, root] of ENGINE_ASSET_ROOTS) {
+      if (!pathname.startsWith(prefix)) continue;
+      const relative = decodeURIComponent(pathname.slice(prefix.length));
+      const resolved = path.resolve(root, relative);
+      if (resolved !== root && !resolved.startsWith(`${root}${path.sep}`)) break;
+      file = resolved;
+      break;
+    }
+  }
+  if (!file) return false;
+  fs.stat(file, (error, stats) => {
+    if (error || !stats.isFile()) {
+      res.writeHead(404);
+      res.end('Engine asset not found');
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream', 'Cache-Control': 'public, max-age=3600' });
+    fs.createReadStream(file).pipe(res);
+  });
+  return true;
+}
+
+function renderEngineLaunchPage(engine) {
+  const title = engine === 'ultraviolet' ? 'Ultraviolet' : 'Scramjet';
+  const bootstrap = engine === 'ultraviolet'
+    ? `<script src="/uv.bundle.js"></script><script src="/uv.config.js"></script><script type="module">
+        import { BareMuxConnection } from '/bare-mux/index.mjs';
+        const target = new URLSearchParams(location.search).get('url');
+        const frame = document.querySelector('#proxy-frame');
+        const connection = new BareMuxConnection('/bare-mux/worker.js');
+        await connection.setTransport('/bare-as-module3/index.mjs', [location.origin + '/bare/']);
+        await navigator.serviceWorker.register('/uv.sw.js', { scope: '/service/' });
+        await navigator.serviceWorker.ready;
+        if (target) frame.src = '/service/' + self.__uv$config.encodeUrl(target);
+        document.querySelector('#target').value = target || '';
+        document.querySelector('#open').addEventListener('click', () => { const next = document.querySelector('#target').value.trim(); if (next) frame.src = '/service/' + self.__uv$config.encodeUrl(next); });
+      </script>`
+    : `<script src="/scramjet/scramjet.bundle.js"></script><script type="module">
+        const target = new URLSearchParams(location.search).get('url');
+        const { ScramjetController } = self.$scramjetLoadController();
+        const controller = new ScramjetController({ prefix: '/scramjet/', files: { wasm: '/scramjet/scramjet.wasm.wasm', all: '/scramjet/scramjet.all.js', sync: '/scramjet/scramjet.sync.js' } });
+        await controller.init();
+        await navigator.serviceWorker.register('/scramjet.sw.js', { scope: '/' });
+        await navigator.serviceWorker.ready;
+        const frame = controller.createFrame(document.querySelector('#proxy-frame'));
+        if (target) frame.go(target);
+        document.querySelector('#target').value = target || '';
+        document.querySelector('#open').addEventListener('click', () => { const next = document.querySelector('#target').value.trim(); if (next) frame.go(next); });
+      </script>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Polaris ${title}</title><style>body{margin:0;background:#070b14;color:#edf5ff;font:16px system-ui}header{display:flex;gap:8px;padding:12px;background:#101b2f}input{flex:1;min-width:0;padding:10px;background:#0f172a;color:inherit;border:1px solid #334155;border-radius:8px}button{padding:10px 16px;background:#7dd3fc;border:0;border-radius:8px;font-weight:700}iframe{width:100%;height:calc(100vh - 60px);border:0;background:white}</style></head><body><header><input id="target" type="url" placeholder="https://example.com"><button id="open" type="button">Open</button></header><iframe id="proxy-frame" referrerpolicy="no-referrer"></iframe>${bootstrap}</body></html>`;
+}
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 let data = loadData();
@@ -40,6 +126,7 @@ function loadData() {
   if (!loaded || typeof loaded !== 'object') loaded = {};
   loaded.users = Array.isArray(loaded.users) ? loaded.users : [];
   loaded.invites = Array.isArray(loaded.invites) ? loaded.invites : [];
+  loaded.proxyRoutesInitialized = Boolean(loaded.proxyRoutesInitialized);
   const hasGameCatalog = Array.isArray(loaded.games);
   loaded.games = hasGameCatalog ? loaded.games : [];
   if (typeof loaded.gamesInitialized !== 'boolean') loaded.gamesInitialized = hasGameCatalog;
@@ -221,6 +308,20 @@ function seedDefaultGames() {
   saveData();
 }
 
+function seedDefaultProxyRoutes() {
+  if (data.proxyRoutesInitialized) return;
+  const defaultRoutes = {
+    rammerhead: [{ health: `http://127.0.0.1:${RAMMERHEAD_PORT}/needpassword`, launch: `http://127.0.0.1:${RAMMERHEAD_PORT}/session/{session}/{url}` }],
+    ultraviolet: [{ health: `http://127.0.0.1:${PORT}/_engine-health/ultraviolet`, launch: `http://127.0.0.1:${PORT}/launch/ultraviolet/?url={url}` }],
+    scramjet: [{ health: `http://127.0.0.1:${PORT}/_engine-health/scramjet`, launch: `http://127.0.0.1:${PORT}/launch/scramjet/?url={url}` }]
+  };
+  for (const [groupId, routes] of Object.entries(defaultRoutes)) {
+    if (!Array.isArray(data.domains[groupId]) || data.domains[groupId].length === 0) data.domains[groupId] = routes;
+  }
+  data.proxyRoutesInitialized = true;
+  saveData();
+}
+
 function inviteIsUsable(invite) {
   const uses = Array.isArray(invite.uses) ? invite.uses : [];
   return !invite.revoked && (!invite.expiresAt || Date.parse(invite.expiresAt) > Date.now()) && uses.length < invite.maxUses;
@@ -248,6 +349,25 @@ function requestOrigin(req) {
   const forwardedProtocol = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase();
   const protocol = forwardedProtocol === 'https' || req.socket.encrypted ? 'https:' : 'http:';
   return new URL(`${protocol}//${host}`).origin;
+}
+
+function startRammerhead() {
+  rammerheadProcess = spawn(process.execPath, [path.join(ROOT, 'scripts/start-rammerhead.js')], {
+    cwd: ROOT,
+    env: { ...process.env, PORT: String(PORT), RAMMERHEAD_PORT: String(RAMMERHEAD_PORT), POLARIS_DATA_DIR: DATA_DIR },
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
+  rammerheadProcess.stdout.on('data', (chunk) => {
+    const message = chunk.toString();
+    process.stdout.write(message);
+    if (message.includes('Rammerhead listening on')) engineStatus.rammerhead = true;
+  });
+  rammerheadProcess.stderr.on('data', (chunk) => process.stderr.write(chunk));
+  rammerheadProcess.on('error', (error) => console.error('Failed to start Rammerhead:', error.message));
+  rammerheadProcess.on('exit', (code) => {
+    engineStatus.rammerhead = false;
+    if (code !== 0 && code !== null) console.error(`Rammerhead exited with code ${code}.`);
+  });
 }
 
 async function detectRuntimeOrigin(req) {
@@ -323,8 +443,9 @@ function validateDomainGroups(input) {
 }
 
 function rebaseLocalLaunch(value, runtime) {
-  const token = '__POLARIS_TARGET_TOKEN__';
-  const launch = new URL(String(value).replaceAll('{url}', token));
+  const targetToken = '__POLARIS_TARGET_TOKEN__';
+  const sessionToken = '__POLARIS_SESSION_TOKEN__';
+  const launch = new URL(String(value).replaceAll('{url}', targetToken).replaceAll('{session}', sessionToken));
   if (!isPrivateAddress(launch.hostname) || runtime.deployment === 'local') return value;
   const routePort = launch.port;
   const base = new URL(runtime.origin);
@@ -342,7 +463,7 @@ function rebaseLocalLaunch(value, runtime) {
   launch.protocol = base.protocol;
   launch.hostname = base.hostname;
   launch.port = base.port;
-  return launch.href.replaceAll(token, '{url}');
+  return launch.href.replaceAll(targetToken, '{url}').replaceAll(sessionToken, '{session}');
 }
 
 async function measureRouteHealth(healthURL) {
@@ -449,6 +570,30 @@ async function handleAPI(req, res, url) {
   if (route === '/api/runtime' && req.method === 'GET') {
     if (!requireAdmin(req, res)) return;
     sendJSON(res, 200, await detectRuntimeOrigin(req));
+    return;
+  }
+
+  if (route === '/api/proxy/rammerhead/launch' && req.method === 'POST') {
+    const body = await readBody(req);
+    let target;
+    try {
+      target = new URL(String(body.target || ''));
+    } catch {
+      return sendJSON(res, 400, { error: 'Enter a valid target URL.' });
+    }
+    if (!['http:', 'https:'].includes(target.protocol)) return sendJSON(res, 400, { error: 'Target URL must use HTTP or HTTPS.' });
+    let response;
+    try {
+      response = await fetch(`http://127.0.0.1:${RAMMERHEAD_PORT}/newsession`, { signal: AbortSignal.timeout(4000) });
+    } catch {
+      return sendJSON(res, 503, { error: 'Rammerhead is not responding.' });
+    }
+    if (!response.ok) return sendJSON(res, 503, { error: 'Rammerhead could not create a session.' });
+    const sessionId = (await response.text()).trim();
+    if (!sessionId) return sendJSON(res, 503, { error: 'Rammerhead returned an empty session.' });
+    const runtime = await detectRuntimeOrigin(req);
+    const template = rebaseLocalLaunch(`http://127.0.0.1:${RAMMERHEAD_PORT}/session/${sessionId}/{url}`, runtime);
+    sendJSON(res, 200, { url: template.replace('{url}', encodeURIComponent(target.href)) });
     return;
   }
 
@@ -662,6 +807,7 @@ async function handleAPI(req, res, url) {
         });
     });
     data.domains = domains;
+    data.proxyRoutesInitialized = true;
     saveData();
     const fastest = checks.filter((check) => check.latency !== null).sort((left, right) => left.latency - right.latency)[0] || null;
     sendJSON(res, 200, { domains, runtime, checks, fastest, rebasedCount });
@@ -673,6 +819,7 @@ async function handleAPI(req, res, url) {
     const body = await readBody(req);
     if (!body.domains || typeof body.domains !== 'object' || Array.isArray(body.domains)) return sendJSON(res, 400, { error: 'Domain settings must be an object.' });
     data.domains = body.domains;
+    data.proxyRoutesInitialized = true;
     saveData();
     sendJSON(res, 200, { domains: data.domains });
     return;
@@ -684,6 +831,28 @@ async function handleAPI(req, res, url) {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   try {
+    if (bareServer.shouldRoute(req)) {
+      await bareServer.routeRequest(req, res);
+      return;
+    }
+    if (url.pathname.startsWith('/_engine-health/')) {
+      const engine = url.pathname.slice('/_engine-health/'.length);
+      const available = ['ultraviolet', 'scramjet'].includes(engine) && engineStatus[engine];
+      sendJSON(res, available ? 200 : 404, { ok: !!available, engine });
+      return;
+    }
+    if (url.pathname === '/launch/ultraviolet/' || url.pathname === '/launch/scramjet/') {
+      if (!authenticatedUser(req)) {
+        res.writeHead(302, { Location: '/' });
+        res.end();
+        return;
+      }
+      const engine = url.pathname.includes('ultraviolet') ? 'ultraviolet' : 'scramjet';
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.end(renderEngineLaunchPage(engine));
+      return;
+    }
+    if (sendEngineAsset(res, url.pathname)) return;
     if (url.pathname.startsWith('/api/')) {
       await handleAPI(req, res, url);
       return;
@@ -738,8 +907,29 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+server.on('upgrade', (req, socket, head) => {
+  if (bareServer.shouldRoute(req)) {
+    bareServer.routeUpgrade(req, socket, head).catch(() => socket.destroy());
+  } else {
+    socket.destroy();
+  }
+});
+server.on('close', () => bareServer.close());
+
+let shuttingDown = false;
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.once(signal, () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    if (rammerheadProcess && rammerheadProcess.exitCode === null) rammerheadProcess.kill(signal);
+    server.close();
+  });
+}
+
 seedAdmin().then(() => {
   seedDefaultGames();
+  startRammerhead();
+  seedDefaultProxyRoutes();
   server.listen(PORT, '0.0.0.0', () => {
     console.log(`Polaris running at http://localhost:${PORT}`);
   });
