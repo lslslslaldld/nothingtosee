@@ -27,13 +27,28 @@ const MIME = {
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 let data = loadData();
+saveData();
 
 function loadData() {
+  let loaded;
   try {
-    return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    loaded = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
   } catch {
-    return { users: [], invites: [], domains: {} };
+    loaded = { users: [], invites: [], domains: {} };
   }
+  if (!loaded || typeof loaded !== 'object') loaded = {};
+  loaded.users = Array.isArray(loaded.users) ? loaded.users : [];
+  loaded.invites = Array.isArray(loaded.invites) ? loaded.invites : [];
+  loaded.domains = loaded.domains && typeof loaded.domains === 'object' ? loaded.domains : {};
+  loaded.users.forEach((user) => {
+    if (!user.username) user.username = String(user.email || '').split('@')[0] || 'member';
+    user.username = String(user.username).trim();
+    delete user.email;
+  });
+  loaded.invites.forEach((invite) => {
+    if (Array.isArray(invite.uses)) invite.uses.forEach((use) => delete use.email);
+  });
+  return loaded;
 }
 
 function saveData() {
@@ -43,7 +58,7 @@ function saveData() {
 }
 
 function publicUser(user) {
-  return { id: user.id, username: user.username, email: user.email, role: user.role, locked: !!user.locked, createdAt: user.createdAt };
+  return { id: user.id, username: user.username, role: user.role, locked: !!user.locked, createdAt: user.createdAt };
 }
 
 function sendJSON(res, status, value, headers = {}) {
@@ -122,14 +137,13 @@ async function hashPassword(password, salt = crypto.randomBytes(16).toString('he
 
 async function seedAdmin() {
   if (data.users.length) return;
-  const email = (process.env.POLARIS_ADMIN_EMAIL || 'admin@polaris.local').trim().toLowerCase();
+  const username = (process.env.POLARIS_ADMIN_USERNAME || 'admin').trim();
   const generatedPassword = crypto.randomBytes(18).toString('base64url');
   const password = process.env.POLARIS_ADMIN_PASSWORD || generatedPassword;
   const credentials = await hashPassword(password);
   data.users.push({
     id: crypto.randomUUID(),
-    username: 'Polaris Admin',
-    email,
+    username,
     ...credentials,
     role: 'admin',
     locked: false,
@@ -137,18 +151,15 @@ async function seedAdmin() {
   });
   saveData();
   if (!process.env.POLARIS_ADMIN_PASSWORD) {
-    console.log(`Initial Polaris admin: ${email}`);
+    console.log(`Initial Polaris admin username: ${username}`);
     console.log(`Initial Polaris password (shown only once): ${generatedPassword}`);
     console.log('Set POLARIS_ADMIN_PASSWORD before first start to choose your own password.');
   }
 }
 
-function validateCredentials(username, email, password) {
+function validateCredentials(username, password) {
   if (typeof username !== 'string' || username.trim().length < 2 || username.trim().length > 40) {
     return 'Username must be between 2 and 40 characters.';
-  }
-  if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-    return 'Enter a valid email address.';
   }
   if (typeof password !== 'string' || password.length < 8 || password.length > 200) {
     return 'Password must be between 8 and 200 characters.';
@@ -176,17 +187,17 @@ async function handleAPI(req, res, url) {
 
   if (route === '/api/auth/login' && req.method === 'POST') {
     const body = await readBody(req);
-    const email = String(body.email || '').trim().toLowerCase();
-    const user = data.users.find((entry) => entry.email === email);
+    const username = String(body.username || '').trim().toLowerCase();
+    const user = data.users.find((entry) => entry.username.toLowerCase() === username);
     if (!user || user.locked) {
-      sendJSON(res, 401, { error: 'Email or password is incorrect, or this account is locked.' });
+      sendJSON(res, 401, { error: 'Username or password is incorrect, or this account is locked.' });
       return;
     }
     const candidate = await hashPassword(String(body.password || ''), user.salt);
     const expected = Buffer.from(user.passwordHash, 'hex');
     const actual = Buffer.from(candidate.passwordHash, 'hex');
     if (expected.length !== actual.length || !crypto.timingSafeEqual(expected, actual)) {
-      sendJSON(res, 401, { error: 'Email or password is incorrect, or this account is locked.' });
+      sendJSON(res, 401, { error: 'Username or password is incorrect, or this account is locked.' });
       return;
     }
     setSession(res, user);
@@ -198,12 +209,11 @@ async function handleAPI(req, res, url) {
     const body = await readBody(req);
     const operation = signupQueue.then(async () => {
       const username = String(body.username || '').trim();
-      const email = String(body.email || '').trim().toLowerCase();
       const password = body.password;
-      const validationError = validateCredentials(username, email, password);
+      const validationError = validateCredentials(username, password);
       if (validationError) return sendJSON(res, 400, { error: validationError });
-      if (data.users.some((entry) => entry.email === email || entry.username.toLowerCase() === username.toLowerCase())) {
-        return sendJSON(res, 409, { error: 'That username or email is already in use.' });
+      if (data.users.some((entry) => entry.username.toLowerCase() === username.toLowerCase())) {
+        return sendJSON(res, 409, { error: 'That username is already in use.' });
       }
       const invite = data.invites.find((entry) => entry.code === String(body.inviteCode || '').trim());
       if (!invite || !inviteIsUsable(invite)) {
@@ -213,14 +223,13 @@ async function handleAPI(req, res, url) {
       const user = {
         id: crypto.randomUUID(),
         username,
-        email,
         ...credentials,
         role: 'member',
         locked: false,
         createdAt: new Date().toISOString()
       };
       invite.uses = Array.isArray(invite.uses) ? invite.uses : [];
-      invite.uses.push({ userId: user.id, username, email, usedAt: new Date().toISOString() });
+      invite.uses.push({ userId: user.id, username, usedAt: new Date().toISOString() });
       data.users.push(user);
       saveData();
       setSession(res, user);

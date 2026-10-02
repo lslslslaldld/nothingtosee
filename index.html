@@ -548,16 +548,12 @@
 
           <form id="auth-form">
             <div class="field">
-              <label for="email">Email</label>
-              <input id="email" type="email" autocomplete="email" placeholder="you@example.com" required />
+              <label for="username">Username</label>
+              <input id="username" type="text" autocomplete="username" placeholder="Your username" minlength="2" maxlength="40" required />
             </div>
             <div class="field">
               <label for="password">Password</label>
               <input id="password" type="password" autocomplete="current-password" minlength="8" placeholder="At least 8 characters" required />
-            </div>
-            <div id="signup-username-wrap" class="field hidden">
-              <label for="signup-username">Username</label>
-              <input id="signup-username" type="text" autocomplete="username" placeholder="Choose a username" minlength="2" maxlength="40" />
             </div>
             <div id="signup-code-wrap" class="field hidden">
               <label for="signup-code">One-time invite code</label>
@@ -589,7 +585,7 @@
         <div class="sidebar-footer">
           <div>Browser session active</div>
           <div class="session-row">
-            <span id="sidebar-email">Signed in</span>
+            <span id="sidebar-username">Signed in</span>
             <button id="signout" class="link-button" type="button">Sign out</button>
           </div>
         </div>
@@ -778,8 +774,6 @@
           $$('.tab').forEach((button) => button.classList.toggle('active', button.dataset.mode === tabName));
           const showSignup = tabName === 'signup';
           $('#signup-code-wrap').classList.toggle('hidden', !showSignup);
-          $('#signup-username-wrap').classList.toggle('hidden', !showSignup);
-          $('#signup-username').required = showSignup;
           $('#signup-code').required = showSignup;
           $('#auth-title').textContent = showSignup ? 'Create your account' : 'Welcome back';
           $('#auth-lead').textContent = showSignup ? 'Create a new account with a one-time admin-issued code.' : 'Sign in to continue to your proxy desk.';
@@ -904,11 +898,11 @@
             <article class="account-row" data-account-id="${escapeHTML(account.id)}">
               <div class="account-info">
                 <strong>${escapeHTML(account.username)}</strong>
-                <span>${escapeHTML(account.email)} · ${account.role === 'admin' ? 'Admin' : 'Member'} · ${account.locked ? 'Locked' : 'Active'}</span>
+                <span>${account.role === 'admin' ? 'Admin' : 'Member'} · ${account.locked ? 'Locked' : 'Active'}</span>
               </div>
               <div class="account-controls">
-                <input data-account-username aria-label="Username for ${escapeHTML(account.email)}" value="${escapeHTML(account.username)}" maxlength="40" />
-                <input data-account-password aria-label="New password for ${escapeHTML(account.email)}" type="password" placeholder="Set new password" autocomplete="new-password" />
+                <input data-account-username aria-label="Username" value="${escapeHTML(account.username)}" maxlength="40" />
+                <input data-account-password aria-label="New password" type="password" placeholder="Set new password" autocomplete="new-password" />
                 <button class="secondary" data-account-save type="button">Save</button>
               </div>
               <div class="account-actions">
@@ -1031,22 +1025,21 @@
 
         async function handleAuthSubmit(event) {
           event.preventDefault();
-          const email = $('#email').value.trim().toLowerCase();
+          const username = $('#username').value.trim();
           const password = $('#password').value;
           const button = $('#auth-submit');
           button.disabled = true;
 
           try {
-            if (!email || !password) throw new Error('Email and password are required.');
+            if (!username || !password) throw new Error('Username and password are required.');
             const signup = state.mode === 'signup';
             const body = signup
               ? {
-                  username: $('#signup-username').value.trim(),
-                  email,
+                  username,
                   password,
                   inviteCode: $('#signup-code').value.trim()
                 }
-              : { email, password };
+              : { username, password };
             const result = await api(signup ? '/api/auth/signup' : '/api/auth/login', {
               method: 'POST',
               body: JSON.stringify(body)
@@ -1074,7 +1067,7 @@
             return;
           }
 
-          $('#sidebar-email').textContent = user.username;
+          $('#sidebar-username').textContent = user.username;
           $('#user-role').textContent = user.role === 'admin' ? 'Admin' : 'Member';
           $('#user-avatar').textContent = user.username.slice(0, 1).toUpperCase();
           $$('.admin-only').forEach((item) => item.classList.toggle('hidden', user.role !== 'admin'));
@@ -1184,7 +1177,7 @@
             state.sessionUser = result.user;
             $('#profile-current-password').value = '';
             $('#profile-new-password').value = '';
-            $('#sidebar-email').textContent = result.user.username;
+            $('#sidebar-username').textContent = result.user.username;
             $('#user-avatar').textContent = result.user.username.slice(0, 1).toUpperCase();
             status.textContent = 'Account settings saved.';
           } catch (error) {
