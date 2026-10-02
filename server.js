@@ -39,6 +39,9 @@ function loadData() {
   if (!loaded || typeof loaded !== 'object') loaded = {};
   loaded.users = Array.isArray(loaded.users) ? loaded.users : [];
   loaded.invites = Array.isArray(loaded.invites) ? loaded.invites : [];
+  const hasGameCatalog = Array.isArray(loaded.games);
+  loaded.games = hasGameCatalog ? loaded.games : [];
+  if (typeof loaded.gamesInitialized !== 'boolean') loaded.gamesInitialized = hasGameCatalog;
   loaded.domains = loaded.domains && typeof loaded.domains === 'object' ? loaded.domains : {};
   loaded.users.forEach((user) => {
     if (!user.username) user.username = String(user.email || '').split('@')[0] || 'member';
@@ -167,6 +170,56 @@ function validateCredentials(username, password) {
   return '';
 }
 
+function validateGame(body) {
+  const name = typeof body.name === 'string' ? body.name.trim() : '';
+  const url = typeof body.url === 'string' ? body.url.trim() : '';
+  const icon = typeof body.icon === 'string' ? body.icon.trim() : '';
+  if (!name || name.length > 60) throw new Error('Game name must be between 1 and 60 characters.');
+  if (url.length > 2048) throw new Error('Game URL is too long.');
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error('Enter a valid game URL.');
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Game URL must use HTTP or HTTPS.');
+  if (icon.length > 120) throw new Error('Icon must be an emoji, short label, or HTTP(S) image URL under 120 characters.');
+  if (/^https?:/i.test(icon)) {
+    let iconUrl;
+    try {
+      iconUrl = new URL(icon);
+    } catch {
+      throw new Error('Icon image URL is invalid.');
+    }
+    if (!['http:', 'https:'].includes(iconUrl.protocol)) throw new Error('Icon image URL must use HTTP or HTTPS.');
+  }
+  return { name, url, icon: icon || '🎮' };
+}
+
+function seedDefaultGames() {
+  if (data.gamesInitialized) return;
+  data.games = [
+    { name: 'Poki', url: 'https://poki.com/', icon: '🎈' },
+    { name: 'CrazyGames', url: 'https://www.crazygames.com/', icon: '🎮' },
+    { name: 'Coolmath Games', url: 'https://www.coolmathgames.com/', icon: '🧩' },
+    { name: 'itch.io HTML5', url: 'https://itch.io/games/html5', icon: '🕹️' },
+    { name: 'Y8 Games', url: 'https://www.y8.com/', icon: '🎯' },
+    { name: 'GamePix', url: 'https://www.gamepix.com/', icon: '👾' },
+    { name: 'Armor Games', url: 'https://armorgames.com/', icon: '🛡️' },
+    { name: 'Kongregate', url: 'https://www.kongregate.com/', icon: '🐵' },
+    { name: 'Miniclip', url: 'https://www.miniclip.com/', icon: '⚽' },
+    { name: 'Newgrounds Games', url: 'https://www.newgrounds.com/games', icon: '🌟' },
+    { name: 'Kizi', url: 'https://kizi.com/', icon: '🦎' },
+    { name: 'Friv', url: 'https://www.friv.com/', icon: '🎨' },
+    { name: 'ABCya', url: 'https://www.abcya.com/', icon: '🔤' },
+    { name: 'Hooda Math', url: 'https://www.hoodamath.com/', icon: '➗' },
+    { name: 'PrimaryGames', url: 'https://www.primarygames.com/', icon: '📚' },
+    { name: 'SilverGames', url: 'https://www.silvergames.com/', icon: '🥈' }
+  ].map((game) => ({ id: crypto.randomUUID(), ...game, createdAt: new Date().toISOString() }));
+  data.gamesInitialized = true;
+  saveData();
+}
+
 function inviteIsUsable(invite) {
   const uses = Array.isArray(invite.uses) ? invite.uses : [];
   return !invite.revoked && (!invite.expiresAt || Date.parse(invite.expiresAt) > Date.now()) && uses.length < invite.maxUses;
@@ -248,6 +301,50 @@ async function handleAPI(req, res, url) {
   }
 
   if (route.startsWith('/api/') && !requireUser(req, res)) return;
+
+  if (route === '/api/games' && req.method === 'GET') {
+    sendJSON(res, 200, { games: data.games });
+    return;
+  }
+
+  if (route === '/api/games' && req.method === 'POST') {
+    if (!requireAdmin(req, res)) return;
+    const game = validateGame(await readBody(req));
+    if (data.games.some((entry) => entry.name.toLowerCase() === game.name.toLowerCase())) {
+      return sendJSON(res, 409, { error: 'A game with that name already exists.' });
+    }
+    const entry = { id: crypto.randomUUID(), ...game, createdAt: new Date().toISOString() };
+    data.games.push(entry);
+    saveData();
+    sendJSON(res, 201, { game: entry });
+    return;
+  }
+
+  if (route.startsWith('/api/games/') && req.method === 'PATCH') {
+    if (!requireAdmin(req, res)) return;
+    const id = decodeURIComponent(route.slice('/api/games/'.length));
+    const index = data.games.findIndex((entry) => entry.id === id);
+    if (index < 0) return sendJSON(res, 404, { error: 'Game not found.' });
+    const game = validateGame(await readBody(req));
+    if (data.games.some((entry) => entry.id !== id && entry.name.toLowerCase() === game.name.toLowerCase())) {
+      return sendJSON(res, 409, { error: 'A game with that name already exists.' });
+    }
+    data.games[index] = { ...data.games[index], ...game };
+    saveData();
+    sendJSON(res, 200, { game: data.games[index] });
+    return;
+  }
+
+  if (route.startsWith('/api/games/') && req.method === 'DELETE') {
+    if (!requireAdmin(req, res)) return;
+    const id = decodeURIComponent(route.slice('/api/games/'.length));
+    const originalLength = data.games.length;
+    data.games = data.games.filter((entry) => entry.id !== id);
+    if (data.games.length === originalLength) return sendJSON(res, 404, { error: 'Game not found.' });
+    saveData();
+    sendJSON(res, 200, { ok: true });
+    return;
+  }
 
   if (route === '/api/accounts' && req.method === 'GET') {
     if (!requireAdmin(req, res)) return;
@@ -454,6 +551,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 seedAdmin().then(() => {
+  seedDefaultGames();
   server.listen(PORT, '0.0.0.0', () => {
     console.log(`Polaris running at http://localhost:${PORT}`);
   });

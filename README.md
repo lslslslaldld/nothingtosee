@@ -15,6 +15,6 @@ The all-in-one command checks for and installs the Rammerhead, Ultraviolet, Scra
 
 ## Access
 
-Accounts use usernames only; no email address is required or used to sign in. Admins can manage accounts in Accounts and configure domain routes and invitation codes in Settings. Each invitation has an expiry in hours (or no expiry) and a maximum number of redemptions. Every account created with an invitation is a member. Members can use Games and Proxy and manage their own username and password in User settings.
+Accounts use usernames only; no email address is required or used to sign in. Admins can manage accounts in Accounts and configure domain routes, proxy auto-configuration, invitation codes, and the shared game catalog in Settings. The Games page starts with a catalog of portals; admins can add, edit, and remove each game's name, destination URL, and icon. Each invitation has an expiry in hours (or no expiry) and a maximum number of redemptions. Every account created with an invitation is a member. Members can search and open Games, use the auto-picking Proxy page, and manage their own username and password in User settings.
 
 This lightweight server is intended for a trusted local demo. Use HTTPS and a production-grade identity/database setup before exposing it to untrusted networks.

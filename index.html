@@ -501,6 +501,24 @@
       .invite-form .invite-meta input { width: 1rem; margin: 0; }
       .invite-item { flex-wrap: wrap; }
       .invite-details { display: grid; gap: 0.3rem; min-width: 0; }
+      .game-toolbar { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+      .game-toolbar input { max-width: 28rem; }
+      .game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.8rem; }
+      .game-card { display: grid; grid-template-columns: 3.5rem 1fr; align-items: center; gap: 0.75rem; background: rgba(17, 25, 43, 0.8); border: 1px solid var(--line); border-radius: 14px; padding: 0.9rem; }
+      .game-icon { width: 3.5rem; height: 3.5rem; display: grid; place-items: center; border-radius: 10px; background: rgba(125, 211, 252, 0.1); object-fit: cover; font-size: 1.8rem; overflow: hidden; }
+      img.game-icon { display: block; }
+      .game-copy { min-width: 0; }
+      .game-copy h3 { margin: 0 0 0.65rem; overflow-wrap: anywhere; }
+      .game-card .secondary { grid-column: 1 / -1; width: 100%; }
+      .game-form { display: grid; grid-template-columns: 1fr 1.5fr 1fr auto; align-items: end; gap: 0.7rem; }
+      .game-form .field { margin: 0; }
+      .game-admin-list { display: grid; gap: 0.65rem; margin-top: 1rem; }
+      .game-admin-row { display: grid; grid-template-columns: 1fr 1.5fr 1fr auto auto; align-items: center; gap: 0.6rem; }
+      .game-admin-row input { min-width: 0; padding: 0.65rem 0.75rem; }
+      .setting-category { margin: 1.1rem 0; }
+      .setting-category h2 { margin: 0.4rem 0; font-size: 1.5rem; }
+      .setting-category p { color: var(--muted); line-height: 1.65; }
+      .proxy-config-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.8rem; }
 
       @media (max-width: 900px) {
         .auth-shell { grid-template-columns: 1fr; }
@@ -510,6 +528,7 @@
         .engine-grid, .discover-grid, .settings-grid { grid-template-columns: 1fr; }
         .account-row { grid-template-columns: 1fr; }
         .invite-form { grid-template-columns: 1fr; }
+        .game-form, .game-admin-row { grid-template-columns: 1fr; }
       }
       @media (max-width: 560px) {
         .target-row { grid-template-columns: 1fr; }
@@ -619,30 +638,21 @@
           <div class="page-head">
             <div class="small-label">Play / 02</div>
             <h1>Games</h1>
-            <p>Open the fastest healthy destination configured by your administrator.</p>
+            <p>Browse the game catalog curated by your administrator.</p>
           </div>
 
-          <div class="discover-grid">
-            <article class="panel">
-              <div class="small-label">01 / Games</div>
-              <h2>Games</h2>
-              <p>Keep a failover list of game portals and launch targets in the Domains panel.</p>
-              <div class="open-row">
-                <span id="games-status">0 configured</span>
-                <button class="secondary" data-discover="games" type="button">Check & open</button>
-              </div>
-            </article>
-
-            <article class="panel">
-              <div class="small-label">02 / Online</div>
-              <h2>Online tools</h2>
-              <p>Use the same pattern for media, communities, and other online tools.</p>
-              <div class="open-row">
-                <span id="online-status">0 configured</span>
-                <button class="secondary" data-discover="online" type="button">Check & open</button>
-              </div>
-            </article>
+          <div class="game-toolbar">
+            <input id="game-search" type="search" placeholder="Search games" aria-label="Search games" />
+            <span id="games-status" class="settings-status">0 games</span>
           </div>
+          <div id="game-grid" class="game-grid"></div>
+          <article class="panel" style="margin-top: 1rem;">
+            <div class="small-label">Online tools</div>
+            <div class="open-row">
+              <span id="online-status">0 configured</span>
+              <button class="secondary" data-discover="online" type="button">Check &amp; open</button>
+            </div>
+          </article>
         </div>
 
         <div id="accounts-page" class="page hidden">
@@ -661,6 +671,15 @@
             <h1>Settings</h1>
             <p>Choose a health URL and a launch template for each group. Format: <code>https://health.example/check | https://launch.example/proxy/{url}</code></p>
           </div>
+            <section class="panel setting-category">
+              <div class="small-label">Category / Proxy</div>
+              <h2>Proxy</h2>
+              <p>Test configured Rammerhead, Ultraviolet, and Scramjet routes, then prioritize healthy routes by measured response time. The Proxy desk rechecks routes when launching.</p>
+              <div class="proxy-config-actions">
+                <button id="auto-configure-proxy" class="secondary" type="button">Auto configure</button>
+                <span id="proxy-config-status" class="settings-status" role="status" aria-live="polite"></span>
+              </div>
+            </section>
           <div id="domain-config" class="settings-grid"></div>
           <div class="controls-row">
             <button id="save-domains" class="primary" type="button">Save domain lists</button>
@@ -694,6 +713,30 @@
             <div class="small-label">Issued codes</div>
           </div>
           <div id="invite-list" class="invite-list"></div>
+          <div class="page-head" style="margin-top: 2rem;">
+            <div class="small-label">Catalog / 06</div>
+            <h2>Games</h2>
+            <p>Add a game title, destination URL, and optional emoji or icon image URL.</p>
+          </div>
+          <section class="panel">
+            <form id="game-form" class="game-form">
+              <div class="field">
+                <label for="game-name">Name</label>
+                <input id="game-name" maxlength="60" placeholder="Game name" required />
+              </div>
+              <div class="field">
+                <label for="game-url">URL</label>
+                <input id="game-url" type="url" placeholder="https://example.com/game" required />
+              </div>
+              <div class="field">
+                <label for="game-icon">Icon</label>
+                <input id="game-icon" maxlength="120" placeholder="Emoji or https:// image" />
+              </div>
+              <button class="primary" type="submit">Add game</button>
+            </form>
+            <div id="game-admin-status" class="settings-status" role="status" aria-live="polite"></div>
+            <div id="game-admin-list" class="game-admin-list"></div>
+          </section>
         </div>
 
         <div id="user-settings-page" class="page hidden">
@@ -738,6 +781,7 @@
           sessionUser: null,
           accounts: [],
           invites: [],
+          games: [],
           domains: {
             rammerhead: [],
             ultraviolet: [],
@@ -855,11 +899,51 @@
         }
 
         function renderDiscoverStatus() {
-          ['games', 'online'].forEach((group) => {
-            const count = (state.domains[group] || []).length;
-            const el = $(`#${group}-status`);
-            if (el) el.textContent = `${count} configured`;
-          });
+          $('#games-status').textContent = `${state.games.length} ${state.games.length === 1 ? 'game' : 'games'}`;
+          $('#online-status').textContent = `${(state.domains.online || []).length} configured`;
+        }
+
+        function gameIconMarkup(game) {
+          const icon = String(game.icon || '🎮');
+          if (/^https?:\/\//i.test(icon)) {
+            return `<img class="game-icon" src="${escapeHTML(icon)}" alt="" loading="lazy" />`;
+          }
+          return `<span class="game-icon" aria-hidden="true">${escapeHTML(icon)}</span>`;
+        }
+
+        function renderGameCatalog() {
+          const query = $('#game-search').value.trim().toLowerCase();
+          const games = state.games.filter((game) => game.name.toLowerCase().includes(query));
+          const grid = $('#game-grid');
+          if (!games.length) {
+            grid.innerHTML = `<div class="empty-state">${state.games.length ? 'No games match your search.' : 'No games have been added yet.'}</div>`;
+            return;
+          }
+          grid.innerHTML = games.map((game) => `
+            <article class="game-card">
+              ${gameIconMarkup(game)}
+              <div class="game-copy"><h3>${escapeHTML(game.name)}</h3></div>
+              <button class="secondary" data-open-game="${escapeHTML(game.id)}" type="button">Open game</button>
+            </article>
+          `).join('');
+        }
+
+        function renderGameAdminList() {
+          const list = $('#game-admin-list');
+          if (!list) return;
+          if (!state.games.length) {
+            list.innerHTML = '<div class="empty-state">No games in the catalog.</div>';
+            return;
+          }
+          list.innerHTML = state.games.map((game) => `
+            <div class="game-admin-row" data-game-id="${escapeHTML(game.id)}">
+              <input data-game-name aria-label="Game name" value="${escapeHTML(game.name)}" maxlength="60" />
+              <input data-game-url aria-label="Game URL" type="url" value="${escapeHTML(game.url)}" />
+              <input data-game-icon aria-label="Game icon" value="${escapeHTML(game.icon || '')}" maxlength="120" />
+              <button class="secondary" data-game-save type="button">Save</button>
+              <button class="secondary danger-button" data-game-delete type="button">Delete</button>
+            </div>
+          `).join('');
         }
 
         function renderInviteList() {
@@ -1072,21 +1156,140 @@
           $('#user-avatar').textContent = user.username.slice(0, 1).toUpperCase();
           $$('.admin-only').forEach((item) => item.classList.toggle('hidden', user.role !== 'admin'));
           $$('.member-only').forEach((item) => item.classList.toggle('hidden', user.role === 'admin'));
-          const [domainResult, accountResult, inviteResult] = await Promise.all([
+          const [domainResult, accountResult, inviteResult, gameResult] = await Promise.all([
             api('/api/settings/domains'),
             user.role === 'admin' ? api('/api/accounts') : Promise.resolve({ accounts: [] }),
-            user.role === 'admin' ? api('/api/invites') : Promise.resolve({ invites: [] })
+            user.role === 'admin' ? api('/api/invites') : Promise.resolve({ invites: [] }),
+            api('/api/games')
           ]);
           state.domains = { ...state.domains, ...domainResult.domains };
           state.accounts = accountResult.accounts;
           state.invites = inviteResult.invites;
+          state.games = gameResult.games;
           $('#profile-username').value = user.username;
           renderPage(state.activePage);
           renderEngineCards();
           renderDomainConfig();
           renderInviteList();
           renderAccounts();
+          renderGameCatalog();
+          renderGameAdminList();
           renderDiscoverStatus();
+        }
+
+        async function addGame(event) {
+          event.preventDefault();
+          const status = $('#game-admin-status');
+          try {
+            await api('/api/games', {
+              method: 'POST',
+              body: JSON.stringify({
+                name: $('#game-name').value.trim(),
+                url: $('#game-url').value.trim(),
+                icon: $('#game-icon').value.trim()
+              })
+            });
+            $('#game-form').reset();
+            state.games = (await api('/api/games')).games;
+            renderGameCatalog();
+            renderGameAdminList();
+            renderDiscoverStatus();
+            status.textContent = 'Game added to the catalog.';
+          } catch (error) {
+            status.textContent = error.message;
+          }
+        }
+
+        async function handleGameAdminAction(event) {
+          const button = event.target.closest('button');
+          const row = button?.closest('[data-game-id]');
+          if (!button || !row) return;
+          const id = row.dataset.gameId;
+          const status = $('#game-admin-status');
+          try {
+            if (button.hasAttribute('data-game-save')) {
+              await api(`/api/games/${encodeURIComponent(id)}`, {
+                method: 'PATCH',
+                body: JSON.stringify({
+                  name: $('[data-game-name]', row).value.trim(),
+                  url: $('[data-game-url]', row).value.trim(),
+                  icon: $('[data-game-icon]', row).value.trim()
+                })
+              });
+              status.textContent = 'Game updated.';
+            } else if (button.hasAttribute('data-game-delete')) {
+              if (!window.confirm('Remove this game from the catalog?')) return;
+              await api(`/api/games/${encodeURIComponent(id)}`, { method: 'DELETE' });
+              status.textContent = 'Game removed.';
+            } else {
+              return;
+            }
+            state.games = (await api('/api/games')).games;
+            renderGameCatalog();
+            renderGameAdminList();
+            renderDiscoverStatus();
+          } catch (error) {
+            status.textContent = error.message;
+          }
+        }
+
+        function openGame(event) {
+          const button = event.target.closest('[data-open-game]');
+          if (!button) return;
+          const game = state.games.find((entry) => entry.id === button.dataset.openGame);
+          if (!game) return;
+          try {
+            const url = new URL(game.url);
+            if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Invalid game URL.');
+            window.open(url.href, '_blank', 'noopener,noreferrer');
+          } catch {
+            alert('This game has an invalid URL. Ask an administrator to update it.');
+          }
+        }
+
+        async function autoConfigureProxy() {
+          const button = $('#auto-configure-proxy');
+          const status = $('#proxy-config-status');
+          const proxyGroups = ['rammerhead', 'ultraviolet', 'scramjet'];
+          const candidates = proxyGroups.flatMap((groupId) => (state.domains[groupId] || []).map((row, index) => ({ groupId, index, row })));
+          if (!candidates.length) {
+            status.textContent = 'Add at least one proxy route below before auto-configuring.';
+            return;
+          }
+          button.disabled = true;
+          status.textContent = 'Testing configured proxy routes…';
+          try {
+            const results = await Promise.all(candidates.map(async (candidate) => ({
+              ...candidate,
+              latency: await testDomainHealthy(candidate.row.health)
+            })));
+            const nextDomains = { ...state.domains };
+            proxyGroups.forEach((groupId) => {
+              nextDomains[groupId] = results
+                .filter((result) => result.groupId === groupId)
+                .sort((left, right) => {
+                  if (left.latency === null) return right.latency === null ? left.index - right.index : 1;
+                  if (right.latency === null) return -1;
+                  return left.latency - right.latency;
+                })
+                .map((result) => result.row);
+            });
+            const saved = await api('/api/settings/domains', {
+              method: 'PUT',
+              body: JSON.stringify({ domains: nextDomains })
+            });
+            state.domains = { ...state.domains, ...saved.domains };
+            const fastest = results.filter((result) => result.latency !== null).sort((left, right) => left.latency - right.latency)[0];
+            renderDomainConfig();
+            renderEngineCards(fastest?.groupId || '');
+            status.textContent = fastest
+              ? `${fastest.groupId} prioritized at ${Math.round(fastest.latency)} ms. Proxy launches still recheck route health.`
+              : 'No route responded; configured fallback order was preserved.';
+          } catch (error) {
+            status.textContent = error.message;
+          } finally {
+            button.disabled = false;
+          }
         }
 
         async function createInviteCode(event) {
@@ -1190,6 +1393,11 @@
         $$('.nav-item').forEach((button) => button.addEventListener('click', () => renderPage(button.dataset.page)));
         $('#launch-btn').addEventListener('click', handleLaunch);
         $('#save-domains').addEventListener('click', saveDomains);
+        $('#auto-configure-proxy').addEventListener('click', autoConfigureProxy);
+        $('#game-form').addEventListener('submit', addGame);
+        $('#game-search').addEventListener('input', renderGameCatalog);
+        $('#game-grid').addEventListener('click', openGame);
+        $('#game-admin-list').addEventListener('click', handleGameAdminAction);
         $('#invite-form').addEventListener('submit', createInviteCode);
         $('#copy-code').addEventListener('click', copyInviteCode);
         $('#account-list').addEventListener('click', handleAccountAction);
