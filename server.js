@@ -467,17 +467,23 @@ function rebaseLocalLaunch(value, runtime) {
 }
 
 async function measureRouteHealth(healthURL) {
-  const controller = new AbortController();
-  const startedAt = Date.now();
-  const timeout = setTimeout(() => controller.abort(), 4000);
-  try {
-    const response = await fetch(healthURL, { cache: 'no-store', redirect: 'manual', signal: controller.signal });
-    return response.ok ? Date.now() - startedAt : null;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timeout);
+  const deadline = Date.now() + 4000;
+  while (Date.now() < deadline) {
+    const controller = new AbortController();
+    const startedAt = Date.now();
+    const timeout = setTimeout(() => controller.abort(), Math.min(1000, deadline - startedAt));
+    try {
+      const response = await fetch(healthURL, { cache: 'no-store', redirect: 'manual', signal: controller.signal });
+      if (response.ok) return Date.now() - startedAt;
+      if (response.status < 500) return null;
+    } catch {
+      // Retry briefly while a freshly started local engine opens its socket.
+    } finally {
+      clearTimeout(timeout);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
   }
+  return null;
 }
 
 async function measureDomainGroups(domains, groupIds) {

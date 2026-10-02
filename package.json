@@ -14,6 +14,7 @@
     "@titaniumnetwork-dev/ultraviolet": "3.2.10",
     "@tomphttp/bare-server-node": "2.0.6",
     "rammerhead": "1.2.64",
+    "dotenv-flow": "^3.2.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

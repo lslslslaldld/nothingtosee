@@ -3,6 +3,8 @@ const path = require('path');
 
 const root = path.resolve(__dirname, '..');
 const dataDir = process.env.POLARIS_DATA_DIR || path.join(root, 'data');
+const jsCacheDirectory = path.join(root, 'node_modules/rammerhead/cache-js');
+fs.mkdirSync(jsCacheDirectory, { recursive: true });
 const config = require(path.join(root, 'node_modules/rammerhead/src/config.js'));
 const sessionDirectory = path.join(dataDir, 'rammerhead-sessions');
 
