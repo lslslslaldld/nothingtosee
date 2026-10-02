@@ -2,6 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const net = require('net');
 const { promisify } = require('util');
 
 const PORT = Number(process.env.PORT || 3000);
@@ -225,6 +226,149 @@ function inviteIsUsable(invite) {
   return !invite.revoked && (!invite.expiresAt || Date.parse(invite.expiresAt) > Date.now()) && uses.length < invite.maxUses;
 }
 
+function isPrivateAddress(hostname) {
+  const normalized = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (normalized === 'localhost' || normalized.endsWith('.localhost') || normalized.endsWith('.local')) return true;
+  if (net.isIP(normalized) === 4) {
+    const [first, second] = normalized.split('.').map(Number);
+    return first === 0 || first === 10 || first === 127 || first === 169 && second === 254 ||
+      first === 172 && second >= 16 && second <= 31 || first === 192 && second === 168 ||
+      first === 100 && second >= 64 && second <= 127 || first >= 224;
+  }
+  if (net.isIP(normalized) === 6) {
+    return normalized === '::1' || normalized.startsWith('fc') || normalized.startsWith('fd') || normalized.startsWith('fe8') ||
+      normalized.startsWith('fe9') || normalized.startsWith('fea') || normalized.startsWith('feb');
+  }
+  return false;
+}
+
+function requestOrigin(req) {
+  const forwardedHost = String(req.headers['x-forwarded-host'] || '').split(',')[0].trim();
+  const host = forwardedHost || req.headers.host || `localhost:${PORT}`;
+  const forwardedProtocol = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase();
+  const protocol = forwardedProtocol === 'https' || req.socket.encrypted ? 'https:' : 'http:';
+  return new URL(`${protocol}//${host}`).origin;
+}
+
+async function detectRuntimeOrigin(req) {
+  const configured = process.env.POLARIS_PUBLIC_URL;
+  if (configured) {
+    const url = new URL(configured);
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
+      throw new Error('POLARIS_PUBLIC_URL must be an HTTP(S) origin without a path.');
+    }
+    return { origin: url.origin, deployment: 'configured' };
+  }
+
+  const origin = requestOrigin(req);
+  const hostname = new URL(origin).hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  const codespacesDomain = hostname.endsWith('.app.github.dev') || hostname.endsWith('.githubpreview.dev');
+  if (codespacesDomain) return { origin: `https://${new URL(origin).host}`, deployment: 'codespaces' };
+
+  if (process.env.CODESPACES === 'true' && process.env.CODESPACE_NAME && process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN) {
+    const domain = process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN.replace(/^\.+/, '');
+    return { origin: `https://${process.env.CODESPACE_NAME}-${PORT}.${domain}`, deployment: 'codespaces' };
+  }
+
+  if (net.isIP(hostname)) {
+    return { origin, deployment: isPrivateAddress(hostname) ? 'private-ip' : 'public-ip' };
+  }
+
+  if (!isPrivateAddress(hostname)) {
+    return { origin, deployment: 'public-host' };
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 3000);
+  try {
+    const response = await fetch('https://api.ipify.org', { signal: controller.signal, cache: 'no-store' });
+    const publicAddress = (await response.text()).trim();
+    if (response.ok && net.isIP(publicAddress) === 4) {
+      const url = new URL(origin);
+      url.hostname = publicAddress;
+      if (!url.port) url.port = String(PORT);
+      return { origin: url.origin, deployment: 'public-ip' };
+    }
+  } catch {
+    // Fall back to the incoming host when public IP discovery is unavailable.
+  } finally {
+    clearTimeout(timeout);
+  }
+  return { origin, deployment: 'local' };
+}
+
+function validateDomainGroups(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Domain settings must be an object.');
+  const groups = ['rammerhead', 'ultraviolet', 'scramjet', 'games', 'online'];
+  return Object.fromEntries(groups.map((groupId) => {
+    const rows = input[groupId] || [];
+    if (!Array.isArray(rows)) throw new Error(`Routes for ${groupId} must be a list.`);
+    return [groupId, rows.map((row) => {
+      const health = String(row.health || '').trim();
+      const launch = String(row.launch || '').trim();
+      let healthURL;
+      let launchURL;
+      try {
+        healthURL = new URL(health);
+        launchURL = new URL(launch.replace('{url}', 'https%3A%2F%2Fexample.com'));
+      } catch {
+        throw new Error(`Invalid health or launch URL in ${groupId}.`);
+      }
+      if (!['http:', 'https:'].includes(healthURL.protocol) || !['http:', 'https:'].includes(launchURL.protocol)) {
+        throw new Error(`Routes for ${groupId} must use HTTP or HTTPS.`);
+      }
+      return { health, launch };
+    })];
+  }));
+}
+
+function rebaseLocalLaunch(value, runtime) {
+  const token = '__POLARIS_TARGET_TOKEN__';
+  const launch = new URL(String(value).replaceAll('{url}', token));
+  if (!isPrivateAddress(launch.hostname) || runtime.deployment === 'local') return value;
+  const routePort = launch.port;
+  const base = new URL(runtime.origin);
+  if (runtime.deployment === 'codespaces' && routePort) {
+    const forwardedHostname = base.hostname.replace(/-\d+(?=\.)/, `-${routePort}`);
+    if (forwardedHostname !== base.hostname) {
+      base.hostname = forwardedHostname;
+      base.port = '';
+    } else {
+      base.port = routePort;
+    }
+  } else if (routePort) {
+    base.port = routePort;
+  }
+  launch.protocol = base.protocol;
+  launch.hostname = base.hostname;
+  launch.port = base.port;
+  return launch.href.replaceAll(token, '{url}');
+}
+
+async function measureRouteHealth(healthURL) {
+  const controller = new AbortController();
+  const startedAt = Date.now();
+  const timeout = setTimeout(() => controller.abort(), 4000);
+  try {
+    const response = await fetch(healthURL, { cache: 'no-store', redirect: 'manual', signal: controller.signal });
+    return response.ok ? Date.now() - startedAt : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function measureDomainGroups(domains, groupIds) {
+  const groups = ['rammerhead', 'ultraviolet', 'scramjet', 'games', 'online'];
+  const selected = groupIds.filter((groupId) => groups.includes(groupId));
+  return Promise.all(selected.flatMap((groupId) => (domains[groupId] || []).map(async (row, index) => ({
+    groupId,
+    index,
+    latency: await measureRouteHealth(row.health)
+  }))));
+}
+
 async function handleAPI(req, res, url) {
   const route = url.pathname;
 
@@ -301,6 +445,20 @@ async function handleAPI(req, res, url) {
   }
 
   if (route.startsWith('/api/') && !requireUser(req, res)) return;
+
+  if (route === '/api/runtime' && req.method === 'GET') {
+    if (!requireAdmin(req, res)) return;
+    sendJSON(res, 200, await detectRuntimeOrigin(req));
+    return;
+  }
+
+  if (route === '/api/settings/domains/health' && req.method === 'GET') {
+    const requestedGroups = (url.searchParams.get('groups') || 'rammerhead,ultraviolet,scramjet')
+      .split(',').map((groupId) => groupId.trim());
+    const results = await measureDomainGroups(data.domains, requestedGroups);
+    sendJSON(res, 200, { results });
+    return;
+  }
 
   if (route === '/api/games' && req.method === 'GET') {
     sendJSON(res, 200, { games: data.games });
@@ -477,6 +635,36 @@ async function handleAPI(req, res, url) {
 
   if (route === '/api/settings/domains' && req.method === 'GET') {
     sendJSON(res, 200, { domains: data.domains });
+    return;
+  }
+
+  if (route === '/api/settings/domains/auto-configure' && req.method === 'POST') {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const domains = validateDomainGroups(body.domains);
+    const runtime = await detectRuntimeOrigin(req);
+    const proxyGroups = ['rammerhead', 'ultraviolet', 'scramjet'];
+    const checks = await measureDomainGroups(domains, proxyGroups);
+    let rebasedCount = 0;
+    proxyGroups.forEach((groupId) => {
+      domains[groupId] = checks
+        .filter((check) => check.groupId === groupId)
+        .sort((left, right) => {
+          if (left.latency === null) return right.latency === null ? left.index - right.index : 1;
+          if (right.latency === null) return -1;
+          return left.latency - right.latency;
+        })
+        .map((check) => {
+          const original = domains[groupId][check.index];
+          const launch = rebaseLocalLaunch(original.launch, runtime);
+          if (launch !== original.launch) rebasedCount += 1;
+          return { ...original, launch };
+        });
+    });
+    data.domains = domains;
+    saveData();
+    const fastest = checks.filter((check) => check.latency !== null).sort((left, right) => left.latency - right.latency)[0] || null;
+    sendJSON(res, 200, { domains, runtime, checks, fastest, rebasedCount });
     return;
   }
 

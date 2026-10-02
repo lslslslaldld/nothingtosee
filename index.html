@@ -1034,20 +1034,6 @@
           }
         }
 
-        async function testDomainHealthy(healthUrl) {
-          const controller = new AbortController();
-          const startedAt = performance.now();
-          const timeout = setTimeout(() => controller.abort(), 5000);
-          try {
-            const response = await fetch(healthUrl, { mode: 'cors', cache: 'no-store', signal: controller.signal });
-            return response.ok ? performance.now() - startedAt : null;
-          } catch {
-            return null;
-          } finally {
-            clearTimeout(timeout);
-          }
-        }
-
         function launchUrlFor(row, target = '') {
           const encodedTarget = encodeURIComponent(target || 'https://example.com');
           return row.launch.includes('{url}')
@@ -1056,24 +1042,22 @@
         }
 
         async function resolveFastestRoute(groupIds, target = '') {
-          const candidates = groupIds.flatMap((groupId) => (state.domains[groupId] || []).map((row) => ({ groupId, row })));
-          if (!candidates.length) throw new Error('No proxy routes are configured. Ask an administrator to add routes in Settings.');
-          const results = await Promise.all(candidates.map(async (candidate) => ({
-            ...candidate,
-            latency: await testDomainHealthy(candidate.row.health)
-          })));
-          const fastest = results.filter((result) => result.latency !== null).sort((left, right) => left.latency - right.latency)[0];
+          const health = await api(`/api/settings/domains/health?groups=${encodeURIComponent(groupIds.join(','))}`);
+          const fastest = health.results.filter((result) => result.latency !== null).sort((left, right) => left.latency - right.latency)[0];
           if (!fastest) throw new Error('No healthy route responded.');
+          const row = (state.domains[fastest.groupId] || [])[fastest.index];
+          if (!row) throw new Error('The selected proxy route is no longer configured.');
           renderEngineCards(fastest.groupId);
-          return { url: launchUrlFor(fastest.row, target), groupId: fastest.groupId, latency: fastest.latency };
+          return { url: launchUrlFor(row, target), groupId: fastest.groupId, latency: fastest.latency };
         }
 
         async function resolveGroupRoute(groupId, target = '') {
-          const rows = state.domains[groupId] || [];
-          if (!rows.length) throw new Error('No domains are configured for this group.');
-          const results = await Promise.all(rows.map(async (row) => ({ row, latency: await testDomainHealthy(row.health) })));
-          const fastest = results.filter((result) => result.latency !== null).sort((left, right) => left.latency - right.latency)[0];
-          if (fastest) return launchUrlFor(fastest.row, target);
+          const health = await api(`/api/settings/domains/health?groups=${encodeURIComponent(groupId)}`);
+          const fastest = health.results.filter((result) => result.latency !== null).sort((left, right) => left.latency - right.latency)[0];
+          if (fastest) {
+            const row = (state.domains[groupId] || [])[fastest.index];
+            if (row) return launchUrlFor(row, target);
+          }
           throw new Error('No healthy domain responded for this group.');
         }
 
@@ -1251,40 +1235,25 @@
           const button = $('#auto-configure-proxy');
           const status = $('#proxy-config-status');
           const proxyGroups = ['rammerhead', 'ultraviolet', 'scramjet'];
-          const candidates = proxyGroups.flatMap((groupId) => (state.domains[groupId] || []).map((row, index) => ({ groupId, index, row })));
-          if (!candidates.length) {
-            status.textContent = 'Add at least one proxy route below before auto-configuring.';
-            return;
-          }
           button.disabled = true;
-          status.textContent = 'Testing configured proxy routes…';
+          status.textContent = 'Detecting deployment address and checking routes…';
           try {
-            const results = await Promise.all(candidates.map(async (candidate) => ({
-              ...candidate,
-              latency: await testDomainHealthy(candidate.row.health)
-            })));
-            const nextDomains = { ...state.domains };
-            proxyGroups.forEach((groupId) => {
-              nextDomains[groupId] = results
-                .filter((result) => result.groupId === groupId)
-                .sort((left, right) => {
-                  if (left.latency === null) return right.latency === null ? left.index - right.index : 1;
-                  if (right.latency === null) return -1;
-                  return left.latency - right.latency;
-                })
-                .map((result) => result.row);
+            const nextDomains = {};
+            GROUPS.forEach((group) => {
+              const textarea = $(`[data-domain-group="${group.id}"]`);
+              nextDomains[group.id] = textarea ? parseDomainEntries(textarea.value) : [];
             });
-            const saved = await api('/api/settings/domains', {
-              method: 'PUT',
+            const result = await api('/api/settings/domains/auto-configure', {
+              method: 'POST',
               body: JSON.stringify({ domains: nextDomains })
             });
-            state.domains = { ...state.domains, ...saved.domains };
-            const fastest = results.filter((result) => result.latency !== null).sort((left, right) => left.latency - right.latency)[0];
+            state.domains = { ...state.domains, ...result.domains };
             renderDomainConfig();
-            renderEngineCards(fastest?.groupId || '');
+            renderEngineCards(result.fastest?.groupId || '');
+            const fastest = result.fastest;
             status.textContent = fastest
-              ? `${fastest.groupId} prioritized at ${Math.round(fastest.latency)} ms. Proxy launches still recheck route health.`
-              : 'No route responded; configured fallback order was preserved.';
+              ? `${result.runtime.deployment} ${result.runtime.origin}; updated ${result.rebasedCount} local launch route(s). ${fastest.groupId} is fastest at ${Math.round(fastest.latency)} ms.`
+              : `${result.runtime.deployment} ${result.runtime.origin}; updated ${result.rebasedCount} local launch route(s). No route responded, so fallback order was preserved.`;
           } catch (error) {
             status.textContent = error.message;
           } finally {
