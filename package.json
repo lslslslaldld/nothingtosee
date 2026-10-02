@@ -5,9 +5,14 @@
   "scripts": {
     "dev": "node server.js",
     "all-in-one": "node server.js",
+    "preall-in-one": "node scripts/ensure-proxy-engines.js",
     "start": "node server.js"
   },
   "dependencies": {
+    "@mercuryworkshop/scramjet": "1.1.0",
+    "@titaniumnetwork-dev/ultraviolet": "3.2.10",
+    "@tomphttp/bare-server-node": "2.0.6",
+    "rammerhead": "1.2.64",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

@@ -497,6 +497,8 @@
       .danger-button { color: #fecaca; border-color: rgba(248, 113, 113, 0.3); }
       .invite-form { grid-template-columns: minmax(10rem, 1fr) minmax(10rem, 1fr) auto; align-items: end; }
       .invite-form .field { margin: 0; }
+      .invite-form .invite-meta { grid-column: 1 / -1; display: inline-flex; align-items: center; gap: 0.55rem; }
+      .invite-form .invite-meta input { width: 1rem; margin: 0; }
       .invite-item { flex-wrap: wrap; }
       .invite-details { display: grid; gap: 0.3rem; min-width: 0; }
 
@@ -726,16 +728,6 @@
 
     <script>
       (() => {
-        const STORAGE = {
-          users: 'relay-users-v1',
-          invites: 'relay-invites-v1',
-          session: 'relay-session-v1',
-          domains: 'relay-domains-v1',
-          history: 'relay-history-v1'
-        };
-        const ADMIN_BOOTSTRAP = 'polaris-admin';
-        const DEFAULT_ADMIN_EMAIL = 'admin@polaris.local';
-        const DEFAULT_ADMIN_PASSWORD = 'PolarisAdmin!2026';
         const GROUPS = [
           { id: 'rammerhead', label: 'Rammerhead' },
           { id: 'ultraviolet', label: 'Ultraviolet' },
@@ -744,49 +736,33 @@
           { id: 'online', label: 'Online tools' }
         ];
 
-        const readJSON = (key, fallback) => {
-          try {
-            const raw = localStorage.getItem(key);
-            return raw ? JSON.parse(raw) : fallback;
-          } catch {
-            return fallback;
-          }
-        };
-        const writeJSON = (key, value) => localStorage.setItem(key, JSON.stringify(value));
-
         const state = {
           mode: 'login',
           activePage: 'proxy',
-          selectedEngine: 'rammerhead',
-          users: readJSON(STORAGE.users, []),
-          invites: readJSON(STORAGE.invites, []),
-          domains: readJSON(STORAGE.domains, {
+          sessionUser: null,
+          accounts: [],
+          invites: [],
+          domains: {
             rammerhead: [],
             ultraviolet: [],
             scramjet: [],
             games: [],
             online: []
-          }),
-          session: localStorage.getItem(STORAGE.session),
-          history: readJSON(STORAGE.history, [])
+          }
         };
-
-        async function ensureDefaultAdmin() {
-          if (state.users.length) return;
-          const salt = crypto.randomUUID();
-          const passwordHash = await pbkdf2Hash(DEFAULT_ADMIN_PASSWORD, salt);
-          state.users = [{
-            email: DEFAULT_ADMIN_EMAIL,
-            salt,
-            passwordHash,
-            role: 'admin',
-            createdAt: new Date().toISOString()
-          }];
-          writeJSON(STORAGE.users, state.users);
-        }
 
         const $ = (selector, root = document) => root.querySelector(selector);
         const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+        const api = async (url, options = {}) => {
+          const response = await fetch(url, {
+            credentials: 'same-origin',
+            ...options,
+            headers: { 'Content-Type': 'application/json', ...options.headers }
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(result.error || 'Request failed.');
+          return result;
+        };
 
         const setAuthMessage = (message, kind = 'error') => {
           const el = $('#auth-message');
@@ -795,27 +771,16 @@
           if (message) el.classList.add(kind === 'success' ? 'success' : 'error');
         };
 
-        function currentUser() {
-          return state.users.find((user) => user.email === state.session) || null;
-        }
-
-        async function pbkdf2Hash(password, salt) {
-          const enc = new TextEncoder();
-          const key = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
-          const bits = await crypto.subtle.deriveBits({
-            name: 'PBKDF2',
-            hash: 'SHA-256',
-            salt: enc.encode(salt),
-            iterations: 150000
-          }, key, 256);
-          return Array.from(new Uint8Array(bits)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
-        }
+        function currentUser() { return state.sessionUser; }
 
         function setTab(tabName) {
           state.mode = tabName;
           $$('.tab').forEach((button) => button.classList.toggle('active', button.dataset.mode === tabName));
           const showSignup = tabName === 'signup';
           $('#signup-code-wrap').classList.toggle('hidden', !showSignup);
+          $('#signup-username-wrap').classList.toggle('hidden', !showSignup);
+          $('#signup-username').required = showSignup;
+          $('#signup-code').required = showSignup;
           $('#auth-title').textContent = showSignup ? 'Create your account' : 'Welcome back';
           $('#auth-lead').textContent = showSignup ? 'Create a new account with a one-time admin-issued code.' : 'Sign in to continue to your proxy desk.';
           $('#auth-submit').textContent = showSignup ? 'Create account' : 'Sign in';
@@ -823,14 +788,26 @@
           setAuthMessage('');
         }
 
+        function escapeHTML(value) {
+          return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+          })[character]);
+        }
+
         function renderPage(pageName) {
+          const user = currentUser();
+          const allowedPages = user?.role === 'admin'
+            ? ['proxy', 'games', 'accounts', 'settings']
+            : ['proxy', 'games', 'user-settings'];
+          if (!allowedPages.includes(pageName)) pageName = user?.role === 'admin' ? 'proxy' : 'proxy';
           state.activePage = pageName;
           $$('.nav-item').forEach((button) => button.classList.toggle('active', button.dataset.page === pageName));
           const pages = {
             proxy: 'proxy-page',
-            discover: 'discover-page',
-            domains: 'domains-page',
-            admin: 'admin-page'
+            games: 'games-page',
+            accounts: 'accounts-page',
+            settings: 'settings-page',
+            'user-settings': 'user-settings-page'
           };
           Object.values(pages).forEach((id) => {
             const page = $('#' + id);
@@ -838,13 +815,14 @@
           });
           $('#crumb-title').textContent = {
             proxy: 'Proxy desk',
-            discover: 'Discover',
-            domains: 'Domains',
-            admin: 'Invite desk'
+            games: 'Games',
+            accounts: 'Accounts',
+            settings: 'Settings',
+            'user-settings': 'User settings'
           }[pageName] || 'Proxy desk';
         }
 
-        function renderEngineCards() {
+        function renderEngineCards(bestId = '') {
           const cards = [
             { id: 'rammerhead', label: 'Rammerhead', desc: 'Fast session-based browsing engine.' },
             { id: 'ultraviolet', label: 'Ultraviolet', desc: 'Stable proxy route for regular browsing.' },
@@ -855,34 +833,21 @@
             const count = (state.domains[card.id] || []).length;
             const status = count ? `${count} configured` : 'Not configured';
             const health = count ? 'online' : 'offline';
-            const selected = state.selectedEngine === card.id ? 'selected' : '';
+            const selected = bestId === card.id ? 'selected' : '';
             return `
               <article class="engine-card ${selected}">
                 <div class="card-meta">
-                  <span>engine / ${String(cards.indexOf(card) + 1).padStart(2,'0')}</span>
+                  <span>engine / ${String(cards.indexOf(card) + 1).padStart(2, '0')}</span>
                   <span id="health-${card.id}" class="health ${health}">${status}</span>
                 </div>
                 <h3>${card.label}</h3>
                 <p>${card.desc}</p>
                 <div class="engine-actions">
-                  <button class="secondary" type="button" data-select-engine="${card.id}">Select</button>
-                  <span class="muted">${state.history.some((entry) => entry.engine === card.id) ? 'Recent' : 'Ready'}</span>
+                  <span class="muted">${bestId === card.id ? 'Fastest healthy route' : count ? 'Available to auto-pick' : 'Add a route in admin settings'}</span>
                 </div>
               </article>
             `;
           }).join('');
-
-          $$('#engine-grid [data-select-engine]').forEach((button) => {
-            button.addEventListener('click', () => {
-              state.selectedEngine = button.dataset.selectEngine;
-              $$('.engine-tab').forEach((tab) => tab.classList.toggle('active', tab.dataset.engine === state.selectedEngine));
-              renderEngineCards();
-            });
-          });
-
-          $$('.engine-tab').forEach((tab) => {
-            tab.classList.toggle('active', tab.dataset.engine === state.selectedEngine);
-          });
         }
 
         function renderDomainConfig() {
@@ -890,7 +855,7 @@
             <section class="panel">
               <div class="small-label">${group.label}</div>
               <h2 style="margin-top: 0.6rem; font-size: 1.5rem;">${group.label}</h2>
-              <textarea data-domain-group="${group.id}" placeholder="https://health.example/check | https://launch.example/proxy/{url}">${(state.domains[group.id] || []).map((entry) => `${entry.health} | ${entry.launch}`).join('\n')}</textarea>
+              <textarea data-domain-group="${group.id}" placeholder="https://health.example/check | https://launch.example/proxy/{url}">${escapeHTML((state.domains[group.id] || []).map((entry) => `${entry.health} | ${entry.launch}`).join('\n'))}</textarea>
             </section>
           `).join('');
         }
@@ -910,11 +875,47 @@
             list.innerHTML = '<div class="empty-state">No invite codes have been issued yet.</div>';
             return;
           }
-          list.innerHTML = state.invites.map((entry) => `
+          list.innerHTML = state.invites.map((entry) => {
+            const uses = entry.uses || [];
+            const expired = entry.expiresAt && Date.parse(entry.expiresAt) <= Date.now();
+            const exhausted = uses.length >= entry.maxUses;
+            const status = entry.revoked ? 'Revoked' : expired ? 'Expired' : exhausted ? 'Fully used' : 'Available';
+            return `
             <div class="invite-item">
-              <strong>${entry.code}</strong>
-              <span class="${entry.used ? 'used' : ''}">${entry.used ? `Used by ${entry.usedBy || 'unknown'}` : 'Available'}</span>
+              <div class="invite-details">
+                <strong>${escapeHTML(entry.code)}</strong>
+                <span class="invite-meta">${uses.length} / ${entry.maxUses} uses${entry.expiresAt ? ` · expires ${escapeHTML(new Date(entry.expiresAt).toLocaleString())}` : ' · no expiry'}</span>
+              </div>
+              <span class="${status === 'Available' ? '' : 'used'}">${status}</span>
+              ${entry.revoked ? '' : `<button class="secondary danger-button" data-revoke-invite="${escapeHTML(entry.id)}" type="button">Revoke</button>`}
             </div>
+          `;
+          }).join('');
+        }
+
+        function renderAccounts() {
+          const list = $('#account-list');
+          if (!list) return;
+          if (!state.accounts.length) {
+            list.innerHTML = '<div class="empty-state">No accounts yet.</div>';
+            return;
+          }
+          list.innerHTML = state.accounts.map((account) => `
+            <article class="account-row" data-account-id="${escapeHTML(account.id)}">
+              <div class="account-info">
+                <strong>${escapeHTML(account.username)}</strong>
+                <span>${escapeHTML(account.email)} · ${account.role === 'admin' ? 'Admin' : 'Member'} · ${account.locked ? 'Locked' : 'Active'}</span>
+              </div>
+              <div class="account-controls">
+                <input data-account-username aria-label="Username for ${escapeHTML(account.email)}" value="${escapeHTML(account.username)}" maxlength="40" />
+                <input data-account-password aria-label="New password for ${escapeHTML(account.email)}" type="password" placeholder="Set new password" autocomplete="new-password" />
+                <button class="secondary" data-account-save type="button">Save</button>
+              </div>
+              <div class="account-actions">
+                <button class="secondary" data-account-lock="${!account.locked}" type="button">${account.locked ? 'Unlock' : 'Lock'}</button>
+                <button class="secondary danger-button" data-account-delete type="button">Delete</button>
+              </div>
+            </article>
           `).join('');
         }
 
@@ -938,15 +939,15 @@
             });
         }
 
-        function saveDomains() {
+        async function saveDomains() {
           try {
             const next = {};
             GROUPS.forEach((group) => {
               const textarea = $(`[data-domain-group="${group.id}"]`);
               next[group.id] = textarea ? parseDomainEntries(textarea.value) : [];
             });
-            state.domains = next;
-            writeJSON(STORAGE.domains, state.domains);
+            const result = await api('/api/settings/domains', { method: 'PUT', body: JSON.stringify({ domains: next }) });
+            state.domains = result.domains;
             $('#domain-status').textContent = 'Saved successfully.';
             renderEngineCards();
             renderDiscoverStatus();
@@ -957,31 +958,44 @@
 
         async function testDomainHealthy(healthUrl) {
           const controller = new AbortController();
+          const startedAt = performance.now();
           const timeout = setTimeout(() => controller.abort(), 5000);
           try {
             const response = await fetch(healthUrl, { mode: 'cors', cache: 'no-store', signal: controller.signal });
-            return response.ok;
+            return response.ok ? performance.now() - startedAt : null;
           } catch {
-            return false;
+            return null;
           } finally {
             clearTimeout(timeout);
           }
         }
 
-        async function resolveHealthyDomain(groupId, target = '') {
+        function launchUrlFor(row, target = '') {
+          const encodedTarget = encodeURIComponent(target || 'https://example.com');
+          return row.launch.includes('{url}')
+            ? row.launch.replace('{url}', encodedTarget)
+            : `${row.launch}${target ? (row.launch.includes('?') ? '&' : '?') + 'q=' + encodedTarget : ''}`;
+        }
+
+        async function resolveFastestRoute(groupIds, target = '') {
+          const candidates = groupIds.flatMap((groupId) => (state.domains[groupId] || []).map((row) => ({ groupId, row })));
+          if (!candidates.length) throw new Error('No proxy routes are configured. Ask an administrator to add routes in Settings.');
+          const results = await Promise.all(candidates.map(async (candidate) => ({
+            ...candidate,
+            latency: await testDomainHealthy(candidate.row.health)
+          })));
+          const fastest = results.filter((result) => result.latency !== null).sort((left, right) => left.latency - right.latency)[0];
+          if (!fastest) throw new Error('No healthy route responded.');
+          renderEngineCards(fastest.groupId);
+          return { url: launchUrlFor(fastest.row, target), groupId: fastest.groupId, latency: fastest.latency };
+        }
+
+        async function resolveGroupRoute(groupId, target = '') {
           const rows = state.domains[groupId] || [];
           if (!rows.length) throw new Error('No domains are configured for this group.');
-          for (const row of rows) {
-            const healthy = await testDomainHealthy(row.health);
-            if (!healthy) continue;
-            const encodedTarget = encodeURIComponent(target || 'https://example.com');
-            const launchUrl = row.launch.includes('{url}')
-              ? row.launch.replace('{url}', encodedTarget)
-              : `${row.launch}${target ? (row.launch.includes('?') ? '&' : '?') + 'q=' + encodedTarget : ''}`;
-            state.history = [{ engine: groupId, time: Date.now() }, ...state.history.filter((entry) => entry.engine !== groupId)].slice(0, 10);
-            writeJSON(STORAGE.history, state.history);
-            return launchUrl;
-          }
+          const results = await Promise.all(rows.map(async (row) => ({ row, latency: await testDomainHealthy(row.health) })));
+          const fastest = results.filter((result) => result.latency !== null).sort((left, right) => left.latency - right.latency)[0];
+          if (fastest) return launchUrlFor(fastest.row, target);
           throw new Error('No healthy domain responded for this group.');
         }
 
@@ -991,20 +1005,26 @@
             $('#target-url').focus();
             return;
           }
+          const tab = window.open('about:blank', '_blank');
+          if (!tab) return alert('Allow pop-ups for Polaris to open the proxy route.');
           try {
-            const url = await resolveHealthyDomain(state.selectedEngine, target);
-            window.open(url, '_blank', 'noopener,noreferrer');
+            const route = await resolveFastestRoute(['rammerhead', 'ultraviolet', 'scramjet'], target);
+            tab.location.replace(route.url);
           } catch (error) {
+            tab.close();
             alert(error.message || 'No healthy route is available.');
           }
         }
 
         async function handleCategoryLaunch(event) {
           const group = event.currentTarget.dataset.discover;
+          const tab = window.open('about:blank', '_blank');
+          if (!tab) return alert('Allow pop-ups for Polaris to open this route.');
           try {
-            const url = await resolveHealthyDomain(group);
-            window.open(url, '_blank', 'noopener,noreferrer');
+            const url = await resolveGroupRoute(group);
+            tab.location.replace(url);
           } catch (error) {
+            tab.close();
             alert(error.message || 'No healthy route is available for this group.');
           }
         }
@@ -1012,48 +1032,28 @@
         async function handleAuthSubmit(event) {
           event.preventDefault();
           const email = $('#email').value.trim().toLowerCase();
-          const password = $('#password').value.trim();
+          const password = $('#password').value;
           const button = $('#auth-submit');
           button.disabled = true;
 
           try {
             if (!email || !password) throw new Error('Email and password are required.');
-
-            if (state.mode === 'signup') {
-              const code = $('#signup-code').value.trim();
-              if (!code) throw new Error('A one-time invite code is required.');
-              if (state.users.some((user) => user.email === email)) throw new Error('An account with that email already exists.');
-
-              const firstAdminCode = state.users.length === 0 && code === ADMIN_BOOTSTRAP;
-              if (firstAdminCode) {
-                const salt = crypto.randomUUID();
-                const hash = await pbkdf2Hash(password, salt);
-                state.users.push({ email, salt, passwordHash: hash, role: 'admin', createdAt: new Date().toISOString() });
-                writeJSON(STORAGE.users, state.users);
-              } else {
-                const invite = state.invites.find((entry) => entry.code === code && !entry.used);
-                if (!invite) throw new Error('That invite code is invalid or already used.');
-                invite.used = true;
-                invite.usedBy = email;
-                writeJSON(STORAGE.invites, state.invites);
-
-                const salt = crypto.randomUUID();
-                const hash = await pbkdf2Hash(password, salt);
-                state.users.push({ email, salt, passwordHash: hash, role: 'member', createdAt: new Date().toISOString() });
-                writeJSON(STORAGE.users, state.users);
-              }
-            } else {
-              const user = state.users.find((entry) => entry.email === email);
-              if (!user) throw new Error('Email or password is incorrect.');
-              const hash = await pbkdf2Hash(password, user.salt);
-              if (hash !== user.passwordHash) throw new Error('Email or password is incorrect.');
-            }
-
-            state.session = email;
-            localStorage.setItem(STORAGE.session, email);
+            const signup = state.mode === 'signup';
+            const body = signup
+              ? {
+                  username: $('#signup-username').value.trim(),
+                  email,
+                  password,
+                  inviteCode: $('#signup-code').value.trim()
+                }
+              : { email, password };
+            const result = await api(signup ? '/api/auth/signup' : '/api/auth/login', {
+              method: 'POST',
+              body: JSON.stringify(body)
+            });
+            state.sessionUser = result.user;
             $('#auth-form').reset();
-            renderShell();
-            setAuthMessage('Signed in.', 'success');
+            await renderShell();
           } catch (error) {
             setAuthMessage(error.message || 'Unable to complete the request.', 'error');
           } finally {
@@ -1061,7 +1061,9 @@
           }
         }
 
-        function renderShell() {
+        async function renderShell() {
+          const session = await api('/api/session');
+          state.sessionUser = session.user;
           const user = currentUser();
           const loggedIn = !!user;
           $('#auth-screen').classList.toggle('hidden', loggedIn);
@@ -1072,26 +1074,45 @@
             return;
           }
 
-          $('#sidebar-email').textContent = user.email;
+          $('#sidebar-email').textContent = user.username;
           $('#user-role').textContent = user.role === 'admin' ? 'Admin' : 'Member';
-          $('#user-avatar').textContent = user.email.slice(0, 1).toUpperCase();
-          $('#admin-nav').classList.toggle('hidden', user.role !== 'admin');
+          $('#user-avatar').textContent = user.username.slice(0, 1).toUpperCase();
+          $$('.admin-only').forEach((item) => item.classList.toggle('hidden', user.role !== 'admin'));
+          $$('.member-only').forEach((item) => item.classList.toggle('hidden', user.role === 'admin'));
+          const [domainResult, accountResult, inviteResult] = await Promise.all([
+            api('/api/settings/domains'),
+            user.role === 'admin' ? api('/api/accounts') : Promise.resolve({ accounts: [] }),
+            user.role === 'admin' ? api('/api/invites') : Promise.resolve({ invites: [] })
+          ]);
+          state.domains = { ...state.domains, ...domainResult.domains };
+          state.accounts = accountResult.accounts;
+          state.invites = inviteResult.invites;
+          $('#profile-username').value = user.username;
           renderPage(state.activePage);
           renderEngineCards();
           renderDomainConfig();
           renderInviteList();
+          renderAccounts();
           renderDiscoverStatus();
         }
 
-        function createInviteCode() {
-          const user = currentUser();
-          if (!user || user.role !== 'admin') return;
-          const code = `relay-${Math.random().toString(36).slice(2, 10)}-${Math.random().toString(36).slice(2, 6)}`.toLowerCase();
-          state.invites.push({ code, used: false, createdAt: new Date().toISOString() });
-          writeJSON(STORAGE.invites, state.invites);
-          $('#invite-code').textContent = code;
-          $('#invite-result').classList.remove('hidden');
-          renderInviteList();
+        async function createInviteCode(event) {
+          event.preventDefault();
+          const status = $('#invite-status');
+          try {
+            const expiresInHours = $('#invite-no-expiry').checked ? null : Number($('#invite-expiry').value);
+            const result = await api('/api/invites', {
+              method: 'POST',
+              body: JSON.stringify({ expiresInHours, maxUses: Number($('#invite-uses').value) })
+            });
+            $('#invite-code').textContent = result.invite.code;
+            $('#invite-result').classList.remove('hidden');
+            state.invites = (await api('/api/invites')).invites;
+            renderInviteList();
+            status.textContent = 'Invite created. Share this code with the new member.';
+          } catch (error) {
+            status.textContent = error.message;
+          }
         }
 
         async function copyInviteCode() {
@@ -1103,29 +1124,96 @@
           }
         }
 
+        async function handleAccountAction(event) {
+          const button = event.target.closest('button');
+          const row = button?.closest('[data-account-id]');
+          if (!button || !row) return;
+          const id = row.dataset.accountId;
+          const status = $('#account-status');
+          try {
+            if (button.hasAttribute('data-account-save')) {
+              const body = { username: $('[data-account-username]', row).value.trim() };
+              const password = $('[data-account-password]', row).value;
+              if (password) body.password = password;
+              await api(`/api/accounts/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) });
+              status.textContent = 'Account updated.';
+            } else if (button.hasAttribute('data-account-lock')) {
+              await api(`/api/accounts/${encodeURIComponent(id)}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ locked: button.dataset.accountLock === 'true' })
+              });
+              status.textContent = button.dataset.accountLock === 'true' ? 'Account locked.' : 'Account unlocked.';
+            } else if (button.hasAttribute('data-account-delete')) {
+              if (!window.confirm('Delete this account permanently?')) return;
+              await api(`/api/accounts/${encodeURIComponent(id)}`, { method: 'DELETE' });
+              status.textContent = 'Account deleted.';
+            } else {
+              return;
+            }
+            state.accounts = (await api('/api/accounts')).accounts;
+            renderAccounts();
+          } catch (error) {
+            status.textContent = error.message;
+          }
+        }
+
+        async function handleRevokeInvite(event) {
+          const button = event.target.closest('[data-revoke-invite]');
+          if (!button) return;
+          try {
+            await api(`/api/invites/${encodeURIComponent(button.dataset.revokeInvite)}`, { method: 'DELETE' });
+            state.invites = (await api('/api/invites')).invites;
+            renderInviteList();
+            $('#invite-status').textContent = 'Invite revoked.';
+          } catch (error) {
+            $('#invite-status').textContent = error.message;
+          }
+        }
+
+        async function saveProfile(event) {
+          event.preventDefault();
+          const status = $('#profile-status');
+          const body = { username: $('#profile-username').value.trim() };
+          const newPassword = $('#profile-new-password').value;
+          if (newPassword) {
+            body.currentPassword = $('#profile-current-password').value;
+            body.password = newPassword;
+          }
+          try {
+            const result = await api('/api/profile', { method: 'PATCH', body: JSON.stringify(body) });
+            state.sessionUser = result.user;
+            $('#profile-current-password').value = '';
+            $('#profile-new-password').value = '';
+            $('#sidebar-email').textContent = result.user.username;
+            $('#user-avatar').textContent = result.user.username.slice(0, 1).toUpperCase();
+            status.textContent = 'Account settings saved.';
+          } catch (error) {
+            status.textContent = error.message;
+          }
+        }
+
         $('#auth-form').addEventListener('submit', handleAuthSubmit);
         $$('.tab').forEach((button) => button.addEventListener('click', () => setTab(button.dataset.mode)));
         $$('.nav-item').forEach((button) => button.addEventListener('click', () => renderPage(button.dataset.page)));
         $('#launch-btn').addEventListener('click', handleLaunch);
         $('#save-domains').addEventListener('click', saveDomains);
-        $('#create-invite').addEventListener('click', createInviteCode);
+        $('#invite-form').addEventListener('submit', createInviteCode);
         $('#copy-code').addEventListener('click', copyInviteCode);
-        $('#signout').addEventListener('click', () => {
-          localStorage.removeItem(STORAGE.session);
-          state.session = null;
-          renderShell();
+        $('#account-list').addEventListener('click', handleAccountAction);
+        $('#invite-list').addEventListener('click', handleRevokeInvite);
+        $('#profile-form').addEventListener('submit', saveProfile);
+        $('#invite-no-expiry').addEventListener('change', (event) => {
+          $('#invite-expiry').disabled = event.currentTarget.checked;
         });
-        $$('.engine-tab').forEach((button) => button.addEventListener('click', () => {
-          state.selectedEngine = button.dataset.engine;
-          renderEngineCards();
-        }));
+        $('#signout').addEventListener('click', async () => {
+          await api('/api/auth/logout', { method: 'POST', body: '{}' });
+          state.sessionUser = null;
+          state.activePage = 'proxy';
+          renderShell().catch((error) => setAuthMessage(error.message));
+        });
         $$('[data-discover]').forEach((button) => button.addEventListener('click', handleCategoryLaunch));
 
-        if (!state.users.length) {
-          state.mode = 'login';
-        }
-
-        ensureDefaultAdmin().finally(renderShell);
+        renderShell().catch((error) => setAuthMessage(error.message || 'Unable to connect to Polaris.'));
       })();
     </script>
   </body>

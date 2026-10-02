@@ -6,11 +6,12 @@ const { promisify } = require('util');
 
 const PORT = Number(process.env.PORT || 3000);
 const ROOT = __dirname;
-const DATA_DIR = path.join(ROOT, 'data');
+const DATA_DIR = process.env.POLARIS_DATA_DIR || path.join(ROOT, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'polaris.json');
 const PBKDF2 = promisify(crypto.pbkdf2);
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 const sessions = new Map();
+let signupQueue = Promise.resolve();
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'application/javascript; charset=utf-8',
@@ -83,6 +84,12 @@ function authenticatedUser(req) {
   }
   const user = data.users.find((entry) => entry.id === session.userId);
   return user && !user.locked ? user : null;
+}
+
+function clearUserSessions(userId, keepToken = '') {
+  for (const [token, session] of sessions) {
+    if (session.userId === userId && token !== keepToken) sessions.delete(token);
+  }
 }
 
 function requireUser(req, res) {
@@ -189,39 +196,38 @@ async function handleAPI(req, res, url) {
 
   if (route === '/api/auth/signup' && req.method === 'POST') {
     const body = await readBody(req);
-    const username = String(body.username || '').trim();
-    const email = String(body.email || '').trim().toLowerCase();
-    const password = body.password;
-    const validationError = validateCredentials(username, email, password);
-    if (validationError) {
-      sendJSON(res, 400, { error: validationError });
-      return;
-    }
-    if (data.users.some((entry) => entry.email === email || entry.username.toLowerCase() === username.toLowerCase())) {
-      sendJSON(res, 409, { error: 'That username or email is already in use.' });
-      return;
-    }
-    const invite = data.invites.find((entry) => entry.code === String(body.inviteCode || '').trim());
-    if (!invite || !inviteIsUsable(invite)) {
-      sendJSON(res, 400, { error: 'That invite code is invalid, expired, revoked, or out of uses.' });
-      return;
-    }
-    const credentials = await hashPassword(password);
-    const user = {
-      id: crypto.randomUUID(),
-      username,
-      email,
-      ...credentials,
-      role: 'member',
-      locked: false,
-      createdAt: new Date().toISOString()
-    };
-    invite.uses = Array.isArray(invite.uses) ? invite.uses : [];
-    invite.uses.push({ userId: user.id, username, email, usedAt: new Date().toISOString() });
-    data.users.push(user);
-    saveData();
-    setSession(res, user);
-    sendJSON(res, 201, { user: publicUser(user) });
+    const operation = signupQueue.then(async () => {
+      const username = String(body.username || '').trim();
+      const email = String(body.email || '').trim().toLowerCase();
+      const password = body.password;
+      const validationError = validateCredentials(username, email, password);
+      if (validationError) return sendJSON(res, 400, { error: validationError });
+      if (data.users.some((entry) => entry.email === email || entry.username.toLowerCase() === username.toLowerCase())) {
+        return sendJSON(res, 409, { error: 'That username or email is already in use.' });
+      }
+      const invite = data.invites.find((entry) => entry.code === String(body.inviteCode || '').trim());
+      if (!invite || !inviteIsUsable(invite)) {
+        return sendJSON(res, 400, { error: 'That invite code is invalid, expired, revoked, or out of uses.' });
+      }
+      const credentials = await hashPassword(password);
+      const user = {
+        id: crypto.randomUUID(),
+        username,
+        email,
+        ...credentials,
+        role: 'member',
+        locked: false,
+        createdAt: new Date().toISOString()
+      };
+      invite.uses = Array.isArray(invite.uses) ? invite.uses : [];
+      invite.uses.push({ userId: user.id, username, email, usedAt: new Date().toISOString() });
+      data.users.push(user);
+      saveData();
+      setSession(res, user);
+      sendJSON(res, 201, { user: publicUser(user) });
+    });
+    signupQueue = operation.catch(() => {});
+    await operation;
     return;
   }
 
@@ -246,8 +252,7 @@ async function handleAPI(req, res, url) {
     const id = decodeURIComponent(route.slice('/api/accounts/'.length));
     const account = data.users.find((entry) => entry.id === id);
     if (!account) return sendJSON(res, 404, { error: 'Account not found.' });
-    if (id === admin.id && req.body?.locked) return sendJSON(res, 400, { error: 'You cannot lock your own account.' });
-    const body = req._body || await readBody(req);
+    const body = await readBody(req);
     if (body.username !== undefined) {
       const username = String(body.username).trim();
       if (username.length < 2 || username.length > 40) return sendJSON(res, 400, { error: 'Username must be between 2 and 40 characters.' });
@@ -259,11 +264,13 @@ async function handleAPI(req, res, url) {
     if (body.password !== undefined) {
       if (typeof body.password !== 'string' || body.password.length < 8 || body.password.length > 200) return sendJSON(res, 400, { error: 'Password must be between 8 and 200 characters.' });
       Object.assign(account, await hashPassword(body.password));
+      clearUserSessions(account.id, account.id === admin.id ? cookieValue(req, 'polaris_session') : '');
     }
     if (body.locked !== undefined) {
       if (typeof body.locked !== 'boolean') return sendJSON(res, 400, { error: 'Locked status must be true or false.' });
       if (id === admin.id && body.locked) return sendJSON(res, 400, { error: 'You cannot lock your own account.' });
       account.locked = body.locked;
+      if (body.locked) clearUserSessions(account.id);
     }
     saveData();
     sendJSON(res, 200, { account: publicUser(account) });
@@ -281,7 +288,7 @@ async function handleAPI(req, res, url) {
       return sendJSON(res, 400, { error: 'The last active administrator cannot be deleted.' });
     }
     data.users = data.users.filter((entry) => entry.id !== id);
-    for (const [token, session] of sessions) if (session.userId === id) sessions.delete(token);
+    clearUserSessions(id);
     saveData();
     sendJSON(res, 200, { ok: true });
     return;
@@ -306,6 +313,7 @@ async function handleAPI(req, res, url) {
       const current = await hashPassword(body.currentPassword, user.salt);
       if (current.passwordHash !== user.passwordHash) return sendJSON(res, 400, { error: 'Current password is incorrect.' });
       Object.assign(user, await hashPassword(body.password));
+      clearUserSessions(user.id, cookieValue(req, 'polaris_session'));
     }
     saveData();
     sendJSON(res, 200, { user: publicUser(user) });
@@ -399,6 +407,14 @@ const server = http.createServer(async (req, res) => {
     if (fullPath !== ROOT && !fullPath.startsWith(`${ROOT}${path.sep}`)) {
       res.writeHead(403);
       res.end('Forbidden');
+      return;
+    }
+    const privateSegments = new Set(['data', 'node_modules', '.git', '.vscode']);
+    const segments = requestPath.split('/').filter(Boolean);
+    const privateFiles = new Set(['server.js', 'package.json', 'package-lock.json', '.env']);
+    if (segments.some((segment) => privateSegments.has(segment) || segment.startsWith('.')) || privateFiles.has(segments.at(-1))) {
+      res.writeHead(404);
+      res.end('Not found');
       return;
     }
     fs.stat(fullPath, (err, stats) => {

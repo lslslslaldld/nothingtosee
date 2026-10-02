@@ -1,32 +1,20 @@
-# React + TypeScript + Vite
+# Polaris
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Polaris is a Node-served, invite-gated proxy portal. Its account database is stored in `data/polaris.json`; that directory is excluded from version control and static web access.
 
-Currently, two official plugins are available:
+## Start
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```sh
+npm install
+npm run all-in-one
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+On first startup, the server creates `admin@polaris.local` and prints a randomly generated password once in the server output. To choose the initial password yourself, set `POLARIS_ADMIN_PASSWORD` before the first startup. `POLARIS_ADMIN_EMAIL` and `POLARIS_DATA_DIR` can also be set. Keep the data directory backed up and private.
+
+The all-in-one command checks for and installs the Rammerhead, Ultraviolet, Scramjet, and Bare Server packages if they are missing. The portal's Proxy page checks all configured engine routes concurrently and opens the fastest healthy route. Configure health and launch URLs in admin Settings. The engine packages provide proxy implementations; a deployment still needs reachable launch routes and must follow the engines' own hosting requirements.
+
+## Access
+
+Admins can manage accounts in Accounts and configure domain routes and invitation codes in Settings. Each invitation has an expiry in hours (or no expiry) and a maximum number of redemptions. Every account created with an invitation is a member. Members can use Games and Proxy and manage their own username and password in User settings.
+
+This lightweight server is intended for a trusted local demo. Use HTTPS and a production-grade identity/database setup before exposing it to untrusted networks.
