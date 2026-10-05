@@ -1,4 +1,5 @@
 import {
+  Component,
   useState,
   useEffect,
   useRef,
@@ -6,6 +7,7 @@ import {
   lazy,
   Suspense,
   type ReactNode,
+  type ErrorInfo,
   type CSSProperties,
   type RefObject,
 } from "react";
@@ -30,6 +32,7 @@ import {
   Folder,
   Flame,
   Code2,
+  Loader2,
   type LucideIcon,
 } from "lucide-react";
 import { Tab } from "@/hooks/useBrowserState";
@@ -87,9 +90,60 @@ function TabPaneShell({
       className="absolute inset-0"
       style={{ display: visible ? "block" : "none" }}
     >
-      <Suspense fallback={null}>{children}</Suspense>
+      <Suspense
+        fallback={
+          <div
+            className="absolute inset-0 flex items-center justify-center gap-2"
+            role="status"
+            style={{ color: "hsla(210, 25%, 78%, 0.76)", background: "hsla(220, 35%, 5%, 0.92)" }}
+          >
+            <Loader2 size={16} className="animate-spin" />
+            <span style={{ fontSize: 12 }}>Loading page...</span>
+          </div>
+        }
+      >
+        {children}
+      </Suspense>
     </div>
   );
+}
+
+class AccountPaneBoundary extends Component<
+  { children: ReactNode },
+  { error: Error | null }
+> {
+  state = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("Account pane failed to render:", error, info.componentStack);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div
+          role="alert"
+          className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center"
+          style={{ color: "hsla(210, 25%, 84%, 0.9)", background: "hsla(220, 35%, 5%, 0.96)" }}
+        >
+          <p style={{ margin: 0, fontSize: 14 }}>The account page hit an error.</p>
+          {import.meta.env.DEV && (
+            <pre style={{ maxWidth: "100%", overflow: "auto", fontSize: 11, color: "#f0a0a8" }}>
+              {this.state.error.message}
+            </pre>
+          )}
+          <button type="button" onClick={() => window.location.reload()}>
+            Reload page
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 function useSectionInsight(url: string, visible: boolean) {
@@ -1456,7 +1510,9 @@ function TabPane({
   if (tab.url === "petezah://settings") {
     return (
       <TabPaneShell visible={isVisible}>
-        <AccountPage onNavigate={onNavigate} />
+        <AccountPaneBoundary>
+          <AccountPage onNavigate={onNavigate} />
+        </AccountPaneBoundary>
       </TabPaneShell>
     );
   }
@@ -1464,7 +1520,9 @@ function TabPane({
   if (tab.url === "petezah://account") {
     return (
       <TabPaneShell visible={isVisible}>
-        <AccountPage onNavigate={onNavigate} />
+        <AccountPaneBoundary>
+          <AccountPage onNavigate={onNavigate} />
+        </AccountPaneBoundary>
       </TabPaneShell>
     );
   }

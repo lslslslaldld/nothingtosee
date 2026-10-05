@@ -35,13 +35,6 @@ function requireAdminSession(req, res, { needHash = false } = {}) {
     res.status(401).json({ error: 'Unauthorized' });
     return null;
   }
-  if (req.session.must_setup_2fa || req.session.user.must_setup_2fa || !req.session.totpOk) {
-    res.status(403).json({
-      error: 'Two-factor authentication required',
-      code: req.session.must_setup_2fa || req.session.user.must_setup_2fa ? 'MUST_SETUP_2FA' : 'REQUIRES_2FA',
-    });
-    return null;
-  }
   const cols = needHash
     ? 'id, email, password_hash, is_admin, totp_enabled, banned'
     : 'id, email, is_admin, totp_enabled, banned';
@@ -58,10 +51,6 @@ function requireAdminSession(req, res, { needHash = false } = {}) {
   }
   if (level < 1 && !owner) {
     res.status(403).json({ error: 'Forbidden' });
-    return null;
-  }
-  if (!row.totp_enabled) {
-    res.status(403).json({ error: 'Set up two-factor authentication to continue', code: 'MUST_SETUP_2FA' });
     return null;
   }
   req.session.user.is_admin = Math.max(level, owner ? 3 : level);

@@ -13,7 +13,7 @@ export function getRequiredSecret(name, { minLength = MIN_SECRET_LEN } = {}) {
   return v;
 }
 
-/** Prefer SESSION_SECRET, then TOKEN_SECRET. Never a hardcoded fallback.  Security stuff */
+/** Prefer SESSION_SECRET, then TOKEN_SECRET. Never a hardcoded fallback. */
 export function getAppPepper(purpose = 'app') {
   const session = readSecret('SESSION_SECRET');
   const token = readSecret('TOKEN_SECRET');

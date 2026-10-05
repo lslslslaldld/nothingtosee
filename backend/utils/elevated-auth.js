@@ -113,69 +113,22 @@ export async function establishPending2faSession(req, row) {
  * @returns {{ ok: true } | { ok: false, status: number, body: object }}
  */
 export function enforceElevatedSession(req) {
-  const pending = req.session?.pending2fa;
-  if (pending?.userId) {
-    const age = Date.now() - (pending.createdAt || 0);
-    if (age > 15 * 60 * 1000) {
-      delete req.session.pending2fa;
-      return {
-        ok: false,
-        status: 401,
-        body: { error: '2FA challenge expired. Sign in again.', code: 'REQUIRES_SIGNIN' },
-      };
-    }
-    return { ok: true, pending2fa: true };
-  }
+  delete req.session?.pending2fa;
 
   const user = req.session?.user;
   if (!user?.id) return { ok: true };
 
-  // always re-read the role from the db. don't short-circuit on totpOk: a user
-  // promoted to staff mid-session still carries totpOk from their normal login,
-  // and skipping the read would let them use admin apis without enrolling 2fa.
   const row = loadAuthRow(user.id);
   if (!row || row.banned) {
     return { ok: false, status: 401, body: { error: 'Unauthorized', code: 'REQUIRES_SIGNIN' } };
   }
 
-  if (!isElevatedRole(row.is_admin, row.email)) {
-    req.session.totpOk = true;
-    delete req.session.must_setup_2fa;
-    if (user.must_setup_2fa) delete user.must_setup_2fa;
-    return { ok: true };
-  }
-
-  // row is elevated. if the session still thinks it's a normal user, this is a
-  // fresh promotion: the totpOk it carries was auto-granted at a normal-user
-  // login with no challenge, so don't honor it, make them actually pass/enroll.
-  const sessionElevated = (Number(user.is_admin) || 0) >= 1 || user.is_owner === true;
-  if (!sessionElevated) delete req.session.totpOk;
-
-  if (row.totp_enabled) {
-    if (req.session.totpOk) return { ok: true };
-    req.session.pending2fa = {
-      userId: row.id,
-      email: row.email,
-      createdAt: Date.now(),
-    };
-    delete req.session.user;
-    delete req.session.totpOk;
-    delete req.session.must_setup_2fa;
-    return {
-      ok: false,
-      status: 401,
-      body: {
-        error: 'Two-factor authentication required',
-        code: 'REQUIRES_2FA',
-        email: maskEmail(row.email),
-      },
-    };
-  }
-
-  req.session.must_setup_2fa = true;
-  req.session.user = buildSetupSessionUser(row);
-  delete req.session.totpOk;
-  return { ok: true, mustSetup2fa: true };
+  req.session.totpOk = true;
+  req.session.user.is_admin = effectiveAdminLevel(row);
+  req.session.user.is_owner = isOwnerEmail(row.email);
+  delete req.session.must_setup_2fa;
+  delete req.session.user.must_setup_2fa;
+  return { ok: true };
 }
 
 export function maskEmail(email) {

@@ -9,11 +9,13 @@ const SCOPE = 'gate';
 let lastCleanup = 0;
 
 export function getCapSecret() {
-  const s = process.env.CAP_SECRET || process.env.TOKEN_SECRET || '';
-  if (!s || s.length < 16) {
-    throw new Error('CAP_SECRET must be set (32+ hex chars)');
-  }
-  return s;
+  const capSecret = typeof process.env.CAP_SECRET === 'string' ? process.env.CAP_SECRET.trim() : '';
+  if (/^[a-f\d]{32,}$/i.test(capSecret)) return capSecret;
+
+  const tokenSecret = typeof process.env.TOKEN_SECRET === 'string' ? process.env.TOKEN_SECRET.trim() : '';
+  if (tokenSecret.length >= 32) return tokenSecret;
+
+  throw new Error('CAP_SECRET (32+ hex chars) or TOKEN_SECRET (32+ chars) must be set');
 }
 
 export function cleanupCapStore(force = false) {

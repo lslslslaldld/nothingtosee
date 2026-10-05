@@ -170,8 +170,8 @@ function banEngineTokens(): Plugin {
 
 export default defineConfig(({ mode }) => ({
   server: {
-    host: "::",
-    port: 3000,
+    host: "0.0.0.0",
+    port: 5173,
     hmr: {
       overlay: false,
     },
@@ -202,6 +202,10 @@ export default defineConfig(({ mode }) => ({
         changeOrigin: true,
       },
       "/api/edge": {
+        target: "http://localhost:8080",
+        changeOrigin: true,
+      },
+      "/api": {
         target: "http://localhost:8080",
         changeOrigin: true,
       },

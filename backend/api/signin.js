@@ -5,11 +5,7 @@ import { getClientIP } from '../utils/client-ip.js';
 import { isIpBanned } from '../middleware/ip-ban.js';
 import {
   buildFullSessionUser,
-  establishPending2faSession,
-  establishSetupSession,
-  isElevatedRole,
 } from '../utils/elevated-auth.js';
-import { maskEmail } from '../utils/elevated-auth.js';
 
 const DUMMY_HASH = '$2b$10$abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12';
 
@@ -56,26 +52,6 @@ export async function signinHandler(req, res) {
     }
 
     if (clientIp) db.prepare('UPDATE users SET ip = ? WHERE id = ?').run(clientIp, user.id);
-
-    const elevated = isElevatedRole(effectiveAdmin, user.email);
-
-    if (elevated) {
-      if (user.totp_enabled && user.totp_secret) {
-        await establishPending2faSession(req, user);
-        return res.status(200).json({
-          requires2fa: true,
-          email: maskEmail(user.email),
-          message: 'Enter your authenticator code to continue.',
-        });
-      }
-
-      const setupUser = await establishSetupSession(req, user);
-      return res.status(200).json({
-        requires2faSetup: true,
-        user: setupUser,
-        message: 'Two-factor authentication is required for staff accounts.',
-      });
-    }
 
     const sessionUser = buildFullSessionUser(user);
     await new Promise((resolve, reject) => {

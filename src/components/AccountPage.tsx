@@ -301,7 +301,6 @@ function Field({ label, type = "text", value, onChange, placeholder, icon: Icon,
           </button>
         )}
       </div>
-                            {u.account_active === 0 ? <span style={{ fontSize: "8px", padding: "1px 4px", borderRadius: "4px", background: "hsl(38 75% 58% / 0.12)", color: "hsl(38 75% 65%)" }}>Inactive</span> : null}
     </div>
   );
 }
