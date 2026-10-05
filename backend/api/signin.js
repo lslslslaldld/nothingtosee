@@ -1,0 +1,97 @@
+import bcrypt from 'bcrypt';
+import db from '../db.js';
+import { isOwnerEmail } from '../utils/auth-roles.js';
+import { getClientIP } from '../utils/client-ip.js';
+import { isIpBanned } from '../middleware/ip-ban.js';
+import {
+  buildFullSessionUser,
+  establishPending2faSession,
+  establishSetupSession,
+  isElevatedRole,
+} from '../utils/elevated-auth.js';
+import { maskEmail } from '../utils/elevated-auth.js';
+
+const DUMMY_HASH = '$2b$10$abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12';
+
+function normalizeEmail(email) {
+  if (typeof email !== 'string') return '';
+  return email.trim().toLowerCase().slice(0, 254);
+}
+
+export async function signinHandler(req, res) {
+  const email = normalizeEmail(req.body?.email);
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
+  if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
+  if (password.length > 256) return res.status(400).json({ error: 'Invalid email or password' });
+
+  const clientIp = getClientIP(req);
+  if (clientIp && isIpBanned(clientIp)) {
+    return res.status(403).json({ error: 'Access denied.' });
+  }
+
+  try {
+    const user = db.prepare(
+      `SELECT id, email, password_hash, username, bio, avatar_url, email_verified, ip, is_admin, banned, account_active,
+              totp_enabled, totp_secret
+       FROM users WHERE lower(email) = ?`
+    ).get(email);
+
+    const hashToCompare = user ? user.password_hash : DUMMY_HASH;
+    const passwordMatch = await bcrypt.compare(password, hashToCompare);
+
+    if (!user || !passwordMatch) {
+      await new Promise(r => setTimeout(r, 80 + Math.floor(Math.random() * 120)));
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    if (user.account_active === 0) return res.status(403).json({ error: 'This account has been deactivated.' });
+    if (user.banned) return res.status(403).json({ error: 'This account has been banned.' });
+
+    const isOwner = isOwnerEmail(user.email);
+    const effectiveAdmin = isOwner ? Math.max(user.is_admin || 0, 3) : (user.is_admin || 0);
+
+    if (isOwner && (user.is_admin || 0) < 3) {
+      db.prepare('UPDATE users SET is_admin = 3 WHERE id = ?').run(user.id);
+      user.is_admin = 3;
+    }
+
+    if (clientIp) db.prepare('UPDATE users SET ip = ? WHERE id = ?').run(clientIp, user.id);
+
+    const elevated = isElevatedRole(effectiveAdmin, user.email);
+
+    if (elevated) {
+      if (user.totp_enabled && user.totp_secret) {
+        await establishPending2faSession(req, user);
+        return res.status(200).json({
+          requires2fa: true,
+          email: maskEmail(user.email),
+          message: 'Enter your authenticator code to continue.',
+        });
+      }
+
+      const setupUser = await establishSetupSession(req, user);
+      return res.status(200).json({
+        requires2faSetup: true,
+        user: setupUser,
+        message: 'Two-factor authentication is required for staff accounts.',
+      });
+    }
+
+    const sessionUser = buildFullSessionUser(user);
+    await new Promise((resolve, reject) => {
+      req.session.regenerate((err) => {
+        if (err) return reject(err);
+        req.session.user = sessionUser;
+        req.session.totpOk = true;
+        delete req.session.pending2fa;
+        delete req.session.must_setup_2fa;
+        req.session.save((saveErr) => (saveErr ? reject(saveErr) : resolve()));
+      });
+    });
+
+    res.status(200).json({ user: sessionUser, message: 'Signin successful' });
+  } catch (error) {
+    console.error('Signin error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}

@@ -1,1397 +1,503 @@
+<!--
+
+If you want to take a break from looking at the boring code, look at my amazing art skills
+
+      ___         ___                       ___           ___           ___           ___     
+     /  /\       /  /\          ___        /  /\         /  /\         /  /\         /__/\    
+    /  /::\     /  /:/_        /  /\      /  /:/_       /  /::|       /  /::\        \  \:\   
+   /  /:/\:\   /  /:/ /\      /  /:/     /  /:/ /\     /  /:/:|      /  /:/\:\        \__\:\  
+  /  /:/~/:/  /  /:/ /:/_    /  /:/     /  /:/ /:/_   /  /:/|:|__   /  /:/~/::\   ___ /  /::\ 
+ /__/:/ /:/  /__/:/ /:/ /\  /  /::\    /__/:/ /:/ /\ /__/:/ |:| /\ /__/:/ /:/\:\ /__/\  /:/\:\
+ \  \:\/:/   \  \:\/:/ /:/ /__/:/\:\   \  \:\/:/ /:/ \__\/  |:|/:/ \  \:\/:/__\/ \  \:\/:/__\/
+  \  \::/     \  \::/ /:/  \__\/  \:\   \  \::/ /:/      |  |:/:/   \  \::/       \  \::/     
+   \  \:\      \  \:\/:/        \  \:\   \  \:\/:/       |  |::/     \  \:\        \  \:\     
+    \  \:\      \  \::/          \__\/    \  \::/        |  |:/       \  \:\        \  \:\    
+     \__\/       \__\/                     \__\/         |__|/         \__\/         \__\/    
+
+That was pretty awesome, I know.  
+
+If you want to make the website better, the repository is open source, and my dms are always open on discord!
+
+-->
+
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0b1020" />
-    <title>Polaris</title>
+    <script>
+      (function () {
+        var k = String.fromCharCode(112, 122, 45, 101, 103);
+        var g = "dl13";
+        try {
+          var u = new URL(location.href);
+          if (u.searchParams.get("_eg") === g) {
+            u.searchParams.delete("_eg");
+            history.replaceState(null, "", u.pathname + u.search + u.hash);
+            try {
+              localStorage.setItem(k, g);
+            } catch (e) {}
+            window.__PZ_EG__ = g;
+            return;
+          }
+          if (localStorage.getItem(k) === g) {
+            window.__PZ_EG__ = g;
+            return;
+          }
+        } catch (e) {
+          return;
+        }
+        window.__pzEgMig = 1;
+        window.__PZ_EG__ = g;
+        try {
+          indexedDB.deleteDatabase(String.fromCharCode(36, 118, 111, 108, 116, 101, 100, 103, 101));
+        } catch (e) {}
+        var jobs = [];
+        if (navigator.serviceWorker) {
+          jobs.push(
+            navigator.serviceWorker.getRegistrations().then(function (rs) {
+              return Promise.all(
+                rs.map(function (r) {
+                  return r.unregister();
+                })
+              );
+            })
+          );
+        }
+        if (window.caches) {
+          jobs.push(
+            caches.keys().then(function (ks) {
+              return Promise.all(
+                ks.map(function (x) {
+                  return caches.delete(x);
+                })
+              );
+            })
+          );
+        }
+        var done = 0;
+        function finish() {
+          if (done) return;
+          done = 1;
+          try {
+            localStorage.setItem(k, g);
+          } catch (e) {}
+          var n = new URL(location.href);
+          n.searchParams.set("_eg", g);
+          location.replace(n.pathname + n.search + n.hash);
+        }
+        Promise.all(jobs)
+          .catch(function () {})
+          .then(finish);
+        setTimeout(finish, 1200);
+      })();
+    </script>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>HypeStudy</title>
+    <meta
+      name="title"
+      content="HypeStudy"
+    />
+    <meta
+      name="description"
+      content="Create flashcards, take quizzes, track your progress with advanced analytics, and master any subject with confidence."
+    />
+    <meta
+      name="keywords"
+      content="Study, Flashcards, Quiz, Analytics, HypeStudy, Learning, Education, Study Tools, Exam Prep, Student Platform, Secure Study, Online Learning, Study Platform, Test Preparation, Academic Success"
+    />
+    <meta name="author" content="HypeStudy" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#f8f6f1" />
+    <meta name="robots" content="index, follow" />
+    <meta name="language" content="English" />
+    <meta name="revisit-after" content="7 days" />
+    <meta name="rating" content="General" />
+    <meta name="distribution" content="global" />
+    <meta name="copyright" content="HypeStudy" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta property="og:type" content="website" />
+    <meta
+      property="og:title"
+      content="HypeStudy — Secure Study Platform for Students"
+    />
+    <meta
+      property="og:description"
+      content="Secure, animated, and modern study platform. Master your subjects with interactive flashcards, dynamic quizzes, comprehensive analytics, and powerful study tools."
+    />
+    <meta property="og:image" content="/logo.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:site_name" content="HypeStudy" />
+    <meta property="og:locale" content="en_US" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://hypestudy.com/" />
+    <meta name="twitter:site" content="@hypestudy" />
+    <meta name="twitter:creator" content="@hypestudy" />
+    <meta
+      name="twitter:title"
+      content="HypeStudy — Secure Study Platform for Students"
+    />
+    <meta
+      name="twitter:description"
+      content="Secure, animated, and modern study platform. Interactive flashcards, quizzes, analytics, and everything you need to excel in your studies."
+    />
+    <meta name="twitter:image" content="/logo.png" />
+    <meta
+      name="twitter:image:alt"
+      content="HypeStudy Logo - Secure Study Platform"
+    />
+    <meta name="application-name" content="HypeStudy" />
+    <meta name="apple-mobile-web-app-title" content="HypeStudy" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="msapplication-TileColor" content="#f8f6f1" />
+    <meta name="msapplication-config" content="/browserconfig.xml" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/logo.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/logo.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-SHE360M0YP"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+      gtag("config", "G-SHE360M0YP", { send_page_view: true, transport_type: "beacon" });
+    </script>
+    <script>
+      (function (w, d, s, l, i) {
+        w[l] = w[l] || [];
+        w[l].push({ "gtm.start": new Date().getTime(), event: "gtm.js" });
+        var f = d.getElementsByTagName(s)[0],
+          j = d.createElement(s),
+          dl = l != "dataLayer" ? "&l=" + l : "";
+        j.async = true;
+        j.src = "https://www.googletagmanager.com/gtm.js?id=" + i + dl;
+        f.parentNode.insertBefore(j, f);
+      })(window, document, "script", "dataLayer", "GTM-WPH7NCG4");
+    </script>
     <style>
-      :root {
-        --bg: #070b14;
-        --bg-2: #101b2f;
-        --panel: rgba(11, 17, 29, 0.8);
-        --panel-strong: #111d31;
-        --line: rgba(148, 163, 184, 0.17);
-        --text: #edf5ff;
-        --muted: #a0aec9;
-        --accent: #7dd3fc;
-        --accent-2: #7c9cff;
-        --glow: rgba(125, 211, 252, 0.28);
-        --success: #4ade80;
-        --warning: #fbbf24;
-        --danger: #f87171;
-        --shadow: 0 28px 80px rgba(2, 6, 23, 0.7);
-      }
-
-      *, *::before, *::after { box-sizing: border-box; }
-      html, body { height: 100%; }
-      body {
-        margin: 0;
-        font-family: Inter, "Segoe UI", sans-serif;
-        background:
-          radial-gradient(circle at top left, rgba(125, 211, 252, 0.18), transparent 26%),
-          radial-gradient(circle at bottom right, rgba(124, 156, 255, 0.18), transparent 22%),
-          linear-gradient(135deg, var(--bg) 0%, var(--bg-2) 100%);
-        color: var(--text);
-      }
-
-      button, input, textarea {
-        font: inherit;
-      }
-      button {
-        cursor: pointer;
-        border: none;
-      }
-      input, textarea {
+      html, body {
+        height: 100dvh;
         width: 100%;
-        background: rgba(15, 23, 42, 0.7);
-        border: 1px solid var(--line);
-        color: var(--text);
-        border-radius: 12px;
-        padding: 0.9rem 1rem;
-      }
-      input::placeholder, textarea::placeholder { color: var(--muted); }
-      textarea {
-        min-height: 110px;
-        resize: vertical;
-      }
-      .hidden { display: none !important; }
-      .message {
-        min-height: 1.5rem;
-        font-size: 0.88rem;
-        color: var(--muted);
-      }
-      .message.error { color: var(--danger); }
-      .message.success { color: var(--success); }
-      .primary {
-        display: block;
-        width: 100%;
-        border-radius: 12px;
-        background: linear-gradient(135deg, var(--accent), var(--accent-2));
-        color: #071421;
-        font-weight: 800;
-        padding: 0.9rem 1rem;
-        box-shadow: 0 18px 42px var(--glow);
-      }
-      .secondary {
-        background: rgba(148, 163, 184, 0.08);
-        border: 1px solid var(--line);
-        color: var(--text);
-        border-radius: 10px;
-        padding: 0.7rem 0.9rem;
-      }
-      .link-button {
-        background: transparent;
-        color: var(--text);
-        text-decoration: underline;
-      }
-      code {
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-        background: rgba(148, 163, 184, 0.08);
-        border-radius: 6px;
-        padding: 0.12rem 0.35rem;
-      }
-
-      .auth-shell {
-        min-height: 100vh;
-        display: grid;
-        grid-template-columns: 1.15fr 0.85fr;
-      }
-      .auth-hero {
-        padding: 2.8rem 3.5rem 2.3rem;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        border-right: 1px solid var(--line);
-        background: linear-gradient(135deg, rgba(125, 211, 252, 0.07), rgba(167, 139, 250, 0.1));
-      }
-      .brand {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.8rem;
-        letter-spacing: 0.15em;
-        text-transform: uppercase;
-        font-weight: 800;
-        font-size: 0.8rem;
-      }
-      .brand-badge {
-        display: grid;
-        place-items: center;
-        width: 2.2rem;
-        height: 2.2rem;
-        border-radius: 12px;
-        background: linear-gradient(135deg, var(--accent), var(--accent-2));
-        color: #0b1120;
-        font-weight: 900;
-      }
-      .hero-title {
-        font-size: clamp(3rem, 6vw, 7rem);
-        line-height: 0.9;
-        letter-spacing: -0.08em;
-        margin: 1.5rem 0 1rem;
-      }
-      .hero-copy {
-        max-width: 36rem;
-        color: var(--muted);
-        line-height: 1.75;
-        font-size: 1.05rem;
-      }
-      .hero-foot {
-        display: flex;
-        justify-content: space-between;
-        gap: 1rem;
-        color: var(--muted);
-        letter-spacing: 0.16em;
-        text-transform: uppercase;
-        font-size: 0.72rem;
-      }
-      .auth-panel {
-        display: grid;
-        place-items: center;
-        padding: 2rem;
-      }
-      .auth-card {
-        width: min(100%, 28rem);
-        background: rgba(17, 25, 43, 0.8);
-        border: 1px solid var(--line);
-        border-radius: 26px;
-        padding: 1.4rem 1.4rem 1.1rem;
-        box-shadow: var(--shadow);
-      }
-      .auth-card h2 {
-        margin: 0.5rem 0;
-        font-size: clamp(2rem, 4vw, 2.7rem);
-        letter-spacing: -0.06em;
-      }
-      .lead {
-        margin: 0 0 1.2rem;
-        color: var(--muted);
-        line-height: 1.7;
-      }
-      .tabs {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 0.6rem;
-        margin-bottom: 1.2rem;
-        border-bottom: 1px solid var(--line);
-      }
-      .tab {
-        background: transparent;
-        color: var(--muted);
-        padding: 0.9rem 0.7rem;
-        border-bottom: 2px solid transparent;
-        font-weight: 700;
-      }
-      .tab.active {
-        color: var(--text);
-        border-color: var(--accent);
-      }
-      .field {
-        display: grid;
-        gap: 0.55rem;
-        margin-bottom: 1rem;
-      }
-      .field label {
-        color: var(--muted);
-        font-size: 0.72rem;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-      }
-      .note {
-        margin-top: 1rem;
-        color: var(--muted);
-        background: rgba(15, 23, 42, 0.78);
-        border: 1px dashed var(--line);
-        border-radius: 12px;
-        padding: 0.9rem 1rem;
-        line-height: 1.7;
-        font-size: 0.8rem;
-      }
-
-      .app-shell {
-        min-height: 100vh;
-        display: grid;
-        grid-template-columns: 260px 1fr;
-      }
-      .sidebar {
-        background: rgba(11, 16, 32, 0.95);
-        border-right: 1px solid var(--line);
-        padding: 1.2rem 1rem 1rem;
-        display: flex;
-        flex-direction: column;
-        gap: 1.2rem;
-      }
-      .nav-list {
-        display: grid;
-        gap: 0.5rem;
-      }
-      .nav-item {
-        text-align: left;
-        background: transparent;
-        color: var(--muted);
-        border-radius: 12px;
-        padding: 0.8rem 0.9rem;
-        font-weight: 700;
-      }
-      .nav-item.active {
-        background: rgba(125, 211, 252, 0.1);
-        border: 1px solid rgba(125, 211, 252, 0.2);
-        color: var(--text);
-      }
-      .sidebar-footer {
-        margin-top: auto;
-        border-top: 1px solid var(--line);
-        padding-top: 1rem;
-        color: var(--muted);
-        line-height: 1.7;
-      }
-      .session-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 0.7rem;
-        margin-top: 0.5rem;
-      }
-
-      .main {
-        padding: 1.2rem 1.4rem 2rem;
-      }
-      .topbar {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 1rem;
-        padding-bottom: 1rem;
-        border-bottom: 1px solid var(--line);
-      }
-      .crumb {
-        color: var(--muted);
-        letter-spacing: 0.13em;
-        text-transform: uppercase;
-        font-size: 0.72rem;
-      }
-      .crumb strong {
-        color: var(--text);
-      }
-      .top-right {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.75rem;
-      }
-      .chip {
-        background: rgba(167, 139, 250, 0.14);
-        border: 1px solid rgba(167, 139, 250, 0.25);
-        color: #ddd6fe;
-        border-radius: 999px;
-        padding: 0.4rem 0.7rem;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        font-size: 0.68rem;
-      }
-      .avatar {
-        width: 2.1rem;
-        height: 2.1rem;
-        border-radius: 50%;
-        display: grid;
-        place-items: center;
-        background: linear-gradient(135deg, var(--accent), var(--accent-2));
-        color: #0b1120;
-        font-weight: 800;
-      }
-
-      .page {
-        max-width: 1180px;
-        margin: 1.5rem auto 0;
-      }
-      .page-head {
-        margin-bottom: 1.15rem;
-      }
-      .page-head h1 {
-        margin: 0.35rem 0 0;
-        font-size: clamp(2.3rem, 5vw, 3.5rem);
-        letter-spacing: -0.07em;
-      }
-      .small-label {
-        color: var(--muted);
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        font-size: 0.68rem;
-      }
-      .page-head p {
-        color: var(--muted);
-        line-height: 1.75;
-        margin: 0.75rem 0 0;
-      }
-      .target-row {
-        display: grid;
-        grid-template-columns: 1fr auto;
-        gap: 0.8rem;
-      }
-      .engine-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.7rem;
-        margin-top: 1.25rem;
-      }
-      .engine-tab {
-        background: rgba(15, 23, 42, 0.72);
-        border: 1px solid var(--line);
-        color: var(--muted);
-        border-radius: 999px;
-        padding: 0.75rem 1rem;
-        font-weight: 700;
-      }
-      .engine-tab.active {
-        background: rgba(125, 211, 252, 0.08);
-        border-color: rgba(125, 211, 252, 0.35);
-        color: var(--text);
-      }
-      .engine-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 1rem;
-        margin-top: 1.2rem;
-      }
-      .engine-card {
-        background: rgba(17, 25, 43, 0.8);
-        border: 1px solid var(--line);
-        border-radius: 20px;
-        padding: 1rem 1rem 0.9rem;
-        box-shadow: var(--shadow);
-      }
-      .engine-card.selected {
-        border-color: rgba(125, 211, 252, 0.35);
-      }
-      .card-meta {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 0.7rem;
-        color: var(--muted);
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        font-size: 0.65rem;
-      }
-      .health.online { color: var(--success); }
-      .health.offline { color: var(--danger); }
-      .engine-card h3 {
-        margin: 1rem 0 0.45rem;
-        font-size: 1.5rem;
-        letter-spacing: -0.05em;
-      }
-      .engine-card p {
+        max-width: none;
         margin: 0;
-        color: var(--muted);
-        line-height: 1.7;
+        padding: 0;
+        overflow: hidden;
+        box-sizing: border-box;
+        background-color: #020810;
+        position: relative;
       }
-      .engine-actions {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 0.7rem;
-        margin-top: 1rem;
-      }
-      .muted {
-        color: var(--muted);
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        font-size: 0.66rem;
-      }
-      .notice {
-        margin-top: 1.3rem;
-        padding: 1rem 1.1rem;
-        background: rgba(125, 211, 252, 0.06);
-        border: 1px solid rgba(125, 211, 252, 0.18);
-        border-radius: 16px;
-        color: var(--muted);
-        line-height: 1.75;
-      }
-      .discover-grid, .settings-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 1rem;
-      }
-      .panel {
-        background: rgba(17, 25, 43, 0.8);
-        border: 1px solid var(--line);
-        border-radius: 22px;
-        padding: 1rem 1rem 0.9rem;
-        box-shadow: var(--shadow);
-      }
-      .panel h2 {
-        margin: 0.55rem 0 0.45rem;
-        font-size: 1.9rem;
-        letter-spacing: -0.05em;
-      }
-      .panel p {
+      #root {
+        position: fixed !important;
+        inset: 0 !important;
+        width: 100% !important;
+        height: 100dvh !important;
+        max-width: none;
         margin: 0;
-        color: var(--muted);
-        line-height: 1.7;
+        padding: 0;
+        overflow: hidden;
+        box-sizing: border-box;
+        z-index: 10;
+        background-color: #020810;
       }
-      .open-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 0.7rem;
-        margin-top: 1rem;
-      }
-      .controls-row {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        margin-top: 1rem;
-      }
-      .settings-status {
-        color: var(--muted);
-      }
-      .invite-panel {
-        display: grid;
-        gap: 1rem;
-      }
-      .invite-list {
-        display: grid;
-        gap: 0.7rem;
-      }
-      .invite-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 1rem;
-        background: rgba(15, 23, 42, 0.72);
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        padding: 0.9rem 1rem;
-      }
-      .invite-item .used {
-        color: var(--warning);
-      }
-      .invite-result {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 0.75rem;
-        background: rgba(74, 222, 128, 0.08);
-        border: 1px solid rgba(74, 222, 128, 0.2);
-        border-radius: 12px;
-        padding: 0.8rem 0.9rem;
-      }
-      .empty-state {
-        color: var(--muted);
-        padding: 0.7rem 0.5rem;
-      }
-      .account-list, .account-actions, .invite-form { display: grid; gap: 0.8rem; }
-      .account-row {
-        display: grid;
-        grid-template-columns: minmax(11rem, 1fr) minmax(12rem, 1.4fr) auto;
-        align-items: center;
-        gap: 1rem;
-        padding: 1rem;
-        background: rgba(15, 23, 42, 0.72);
-        border: 1px solid var(--line);
-        border-radius: 12px;
-      }
-      .account-info { display: grid; gap: 0.3rem; min-width: 0; }
-      .account-info span, .invite-meta { color: var(--muted); font-size: 0.86rem; overflow-wrap: anywhere; }
-      .account-controls { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
-      .account-controls input { min-width: 10rem; width: auto; flex: 1 1 10rem; padding: 0.65rem 0.75rem; }
-      .danger-button { color: #fecaca; border-color: rgba(248, 113, 113, 0.3); }
-      .invite-form { grid-template-columns: minmax(10rem, 1fr) minmax(10rem, 1fr) auto; align-items: end; }
-      .invite-form .field { margin: 0; }
-      .invite-form .invite-meta { grid-column: 1 / -1; display: inline-flex; align-items: center; gap: 0.55rem; }
-      .invite-form .invite-meta input { width: 1rem; margin: 0; }
-      .invite-item { flex-wrap: wrap; }
-      .invite-details { display: grid; gap: 0.3rem; min-width: 0; }
-      .game-toolbar { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
-      .game-toolbar input { max-width: 28rem; }
-      .game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.8rem; }
-      .game-card { display: grid; grid-template-columns: 3.5rem 1fr; align-items: center; gap: 0.75rem; background: rgba(17, 25, 43, 0.8); border: 1px solid var(--line); border-radius: 14px; padding: 0.9rem; }
-      .game-icon { width: 3.5rem; height: 3.5rem; display: grid; place-items: center; border-radius: 10px; background: rgba(125, 211, 252, 0.1); object-fit: cover; font-size: 1.8rem; overflow: hidden; }
-      img.game-icon { display: block; }
-      .game-copy { min-width: 0; }
-      .game-copy h3 { margin: 0 0 0.65rem; overflow-wrap: anywhere; }
-      .game-card .secondary { grid-column: 1 / -1; width: 100%; }
-      .game-form { display: grid; grid-template-columns: 1fr 1.5fr 1fr auto; align-items: end; gap: 0.7rem; }
-      .game-form .field { margin: 0; }
-      .game-admin-list { display: grid; gap: 0.65rem; margin-top: 1rem; }
-      .game-admin-row { display: grid; grid-template-columns: 1fr 1.5fr 1fr auto auto; align-items: center; gap: 0.6rem; }
-      .game-admin-row input { min-width: 0; padding: 0.65rem 0.75rem; }
-      .setting-category { margin: 1.1rem 0; }
-      .setting-category h2 { margin: 0.4rem 0; font-size: 1.5rem; }
-      .setting-category p { color: var(--muted); line-height: 1.65; }
-      .proxy-config-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.8rem; }
-
-      @media (max-width: 900px) {
-        .auth-shell { grid-template-columns: 1fr; }
-        .auth-hero { min-height: 18rem; padding: 2rem; }
-        .app-shell { grid-template-columns: 1fr; }
-        .sidebar { border-right: 0; border-bottom: 1px solid var(--line); }
-        .engine-grid, .discover-grid, .settings-grid { grid-template-columns: 1fr; }
-        .account-row { grid-template-columns: 1fr; }
-        .invite-form { grid-template-columns: 1fr; }
-        .game-form, .game-admin-row { grid-template-columns: 1fr; }
-      }
-      @media (max-width: 560px) {
-        .target-row { grid-template-columns: 1fr; }
-        .main { padding: 0.9rem 1rem 1.5rem; }
+      .education-is-key {
+        display: none !important;
       }
     </style>
   </head>
   <body>
-    <section id="auth-screen" class="auth-shell">
-      <div class="auth-hero">
-        <div class="brand"><span class="brand-badge">P</span> Polaris</div>
-        <div>
-          <div class="small-label">Private access / invite only</div>
-          <h1 class="hero-title">Steer the web with precision.</h1>
-          <p class="hero-copy">
-            Polaris is a sleek proxy desk with health-checked failover domains for Rammerhead, Ultraviolet, Scramjet,
-            games, and online tools. Sign in with a valid account or create one with a one-time code from the admin.
-          </p>
-        </div>
-        <div class="hero-foot">
-          <span>Polaris / 01</span>
-          <span>All-in-one browser portal</span>
-        </div>
-      </div>
+    <noscript
+      ><iframe
+        src="https://www.googletagmanager.com/ns.html?id=GTM-WPH7NCG4"
+        height="0"
+        width="0"
+        style="display: none; visibility: hidden"
+      ></iframe
+    ></noscript>
+    <div id="root"></div>
 
-      <div class="auth-panel">
-        <div class="auth-card">
-          <div class="brand" style="margin-bottom: 1rem;"><span class="brand-badge">P</span> Polaris</div>
-          <h2 id="auth-title">Welcome back</h2>
-          <p id="auth-lead" class="lead">Sign in to continue to your proxy desk.</p>
+    <div class="education-is-key" aria-hidden="true">
+      <h1>Educational Resources and Online Learning Platform</h1>
+      <p>
+        Comprehensive education platform for students, teachers, and lifelong
+        learners. Access online courses, study materials, exam preparation
+        resources, and interactive learning tools.
+      </p>
+      <section>
+        <h2>Academic Subjects</h2>
+        <p>
+          Mathematics, Science, English, History, Literature, Writing, Reading,
+          Social Studies, Geography, Biology, Chemistry, Physics, Algebra,
+          Geometry, Calculus, Statistics, Computer Science, Programming, Foreign
+          Languages, Art, Music
+        </p>
+      </section>
+      <section>
+        <h2>Educational Services</h2>
+        <p>
+          Online courses, college credit, exam preparation, test prep, tutoring,
+          homework help, study guides, practice tests, educational videos,
+          interactive lessons, learning resources, curriculum development,
+          academic support, student success, teacher resources, educational
+          technology, e-learning, distance education, virtual classroom, online
+          tutoring, academic coaching
+        </p>
+      </section>
+      <section>
+        <h2>Student Levels</h2>
+        <p>
+          K-12 education, elementary school, middle school, high school,
+          college, university, graduate school, continuing education, adult
+          learning, professional development, certification programs, degree
+          programs, homeschool education
+        </p>
+      </section>
+      <section>
+        <h2>Test Preparation</h2>
+        <p>
+          SAT prep, ACT prep, GRE prep, GMAT prep, LSAT prep, MCAT prep, AP
+          courses, Advanced Placement, standardized tests, college entrance
+          exams, professional certification exams, state assessments, final
+          exams, midterms
+        </p>
+      </section>
+      <section>
+        <h3>Learning Methods</h3>
+        <p>
+          Interactive learning, video lessons, practice quizzes, flashcards,
+          study notes, educational games, adaptive learning, personalized
+          education, self-paced learning, collaborative learning, project-based
+          learning, STEM education, critical thinking, problem solving
+        </p>
+      </section>
+    </div>
 
-          <div class="tabs">
-            <button class="tab active" data-mode="login" type="button">Sign in</button>
-            <button class="tab" data-mode="signup" type="button">Create account</button>
-          </div>
-
-          <form id="auth-form">
-            <div class="field">
-              <label for="username">Username</label>
-              <input id="username" type="text" autocomplete="username" placeholder="Your username" minlength="2" maxlength="40" required />
-            </div>
-            <div class="field">
-              <label for="password">Password</label>
-              <input id="password" type="password" autocomplete="current-password" minlength="8" placeholder="At least 8 characters" required />
-            </div>
-            <div id="signup-code-wrap" class="field hidden">
-              <label for="signup-code">One-time invite code</label>
-              <input id="signup-code" type="text" autocomplete="one-time-code" placeholder="Provided by the admin" />
-            </div>
-            <div style="display: grid; gap: 0.7rem;">
-              <button id="auth-submit" class="primary" type="submit">Sign in</button>
-              <div id="auth-message" class="message" role="status" aria-live="polite"></div>
-            </div>
-          </form>
-
-          <div class="note">
-            New accounts require an active invitation from a Polaris administrator.
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="app-screen" class="app-shell hidden">
-      <aside class="sidebar">
-        <div class="brand"><span class="brand-badge">P</span> Polaris</div>
-        <nav class="nav-list" aria-label="Main nav">
-          <button class="nav-item active" data-page="proxy" type="button">Proxy desk</button>
-          <button class="nav-item" data-page="games" type="button">Games</button>
-          <button class="nav-item admin-only hidden" data-page="accounts" type="button">Accounts</button>
-          <button class="nav-item admin-only hidden" data-page="settings" type="button">Settings</button>
-          <button class="nav-item member-only hidden" data-page="user-settings" type="button">User settings</button>
-        </nav>
-        <div class="sidebar-footer">
-          <div>Browser session active</div>
-          <div class="session-row">
-            <span id="sidebar-username">Signed in</span>
-            <button id="signout" class="link-button" type="button">Sign out</button>
-          </div>
-        </div>
-      </aside>
-
-      <main class="main">
-        <header class="topbar">
-          <div class="crumb">Workspace <strong id="crumb-title">Proxy desk</strong></div>
-          <div class="top-right">
-            <span id="user-role" class="chip">Member</span>
-            <span id="user-avatar" class="avatar">P</span>
-          </div>
-        </header>
-
-        <div id="proxy-page" class="page">
-          <div class="page-head">
-            <div class="small-label">Browsing / 01</div>
-            <h1>Proxy desk</h1>
-            <p>Polaris tests the configured routes in parallel and opens the fastest healthy proxy engine automatically.</p>
-          </div>
-
-          <div class="target-row">
-            <input id="target-url" type="url" placeholder="https://example.com" aria-label="Target URL" />
-            <button id="launch-btn" class="primary" type="button">Auto-pick &amp; open</button>
-          </div>
-
-          <div id="engine-grid" class="engine-grid"></div>
-        </div>
-
-        <div id="games-page" class="page hidden">
-          <div class="page-head">
-            <div class="small-label">Play / 02</div>
-            <h1>Games</h1>
-            <p>Browse the game catalog curated by your administrator.</p>
-          </div>
-
-          <div class="game-toolbar">
-            <input id="game-search" type="search" placeholder="Search games" aria-label="Search games" />
-            <span id="games-status" class="settings-status">0 games</span>
-          </div>
-          <div id="game-grid" class="game-grid"></div>
-          <article class="panel" style="margin-top: 1rem;">
-            <div class="small-label">Online tools</div>
-            <div class="open-row">
-              <span id="online-status">0 configured</span>
-              <button class="secondary" data-discover="online" type="button">Check &amp; open</button>
-            </div>
-          </article>
-        </div>
-
-        <div id="accounts-page" class="page hidden">
-          <div class="page-head">
-            <div class="small-label">Administration / 03</div>
-            <h1>Accounts</h1>
-            <p>Manage usernames, reset passwords, lock access, and remove accounts.</p>
-          </div>
-          <div id="account-list" class="account-list"></div>
-          <div id="account-status" class="settings-status" role="status" aria-live="polite"></div>
-        </div>
-
-        <div id="settings-page" class="page hidden">
-          <div class="page-head">
-            <div class="small-label">Administration / 04</div>
-            <h1>Settings</h1>
-            <p>Choose a health URL and a launch template for each group. Format: <code>https://health.example/check | https://launch.example/proxy/{url}</code></p>
-          </div>
-            <section class="panel setting-category">
-              <div class="small-label">Category / Proxy</div>
-              <h2>Proxy</h2>
-              <p>Test configured Rammerhead, Ultraviolet, and Scramjet routes, then prioritize healthy routes by measured response time. The Proxy desk rechecks routes when launching.</p>
-              <div class="proxy-config-actions">
-                <button id="auto-configure-proxy" class="secondary" type="button">Auto configure</button>
-                <span id="proxy-config-status" class="settings-status" role="status" aria-live="polite"></span>
-              </div>
-            </section>
-          <div id="domain-config" class="settings-grid"></div>
-          <div class="controls-row">
-            <button id="save-domains" class="primary" type="button">Save domain lists</button>
-            <span id="domain-status" class="settings-status"></span>
-          </div>
-          <div class="page-head" style="margin-top: 2rem;">
-            <div class="small-label">Access / 05</div>
-            <h2>Invitations</h2>
-            <p>Set how long each code stays valid and how many accounts may redeem it.</p>
-          </div>
-          <div class="panel invite-panel">
-            <form id="invite-form" class="invite-form">
-              <div class="field">
-                <label for="invite-expiry">Expires after (hours)</label>
-                <input id="invite-expiry" type="number" min="1" max="87600" value="24" />
-              </div>
-              <div class="field">
-                <label for="invite-uses">Maximum redemptions</label>
-                <input id="invite-uses" type="number" min="1" max="10000" value="1" required />
-              </div>
-              <button class="primary" type="submit">Create invite</button>
-              <label class="invite-meta"><input id="invite-no-expiry" type="checkbox" /> No expiry</label>
-            </form>
-            <div id="invite-status" class="settings-status" role="status" aria-live="polite"></div>
-            <div id="invite-result" class="invite-result hidden">
-              <span id="invite-code">--</span>
-              <button id="copy-code" class="secondary" type="button">Copy</button>
-            </div>
-          </div>
-          <div class="page-head" style="margin-top: 1.4rem;">
-            <div class="small-label">Issued codes</div>
-          </div>
-          <div id="invite-list" class="invite-list"></div>
-          <div class="page-head" style="margin-top: 2rem;">
-            <div class="small-label">Catalog / 06</div>
-            <h2>Games</h2>
-            <p>Add a game title, destination URL, and optional emoji or icon image URL.</p>
-          </div>
-          <section class="panel">
-            <form id="game-form" class="game-form">
-              <div class="field">
-                <label for="game-name">Name</label>
-                <input id="game-name" maxlength="60" placeholder="Game name" required />
-              </div>
-              <div class="field">
-                <label for="game-url">URL</label>
-                <input id="game-url" type="url" placeholder="https://example.com/game" required />
-              </div>
-              <div class="field">
-                <label for="game-icon">Icon</label>
-                <input id="game-icon" maxlength="120" placeholder="Emoji or https:// image" />
-              </div>
-              <button class="primary" type="submit">Add game</button>
-            </form>
-            <div id="game-admin-status" class="settings-status" role="status" aria-live="polite"></div>
-            <div id="game-admin-list" class="game-admin-list"></div>
-          </section>
-        </div>
-
-        <div id="user-settings-page" class="page hidden">
-          <div class="page-head">
-            <div class="small-label">Your account / 03</div>
-            <h1>User settings</h1>
-            <p>Update your username or change your password.</p>
-          </div>
-          <form id="profile-form" class="panel invite-panel">
-            <div class="field">
-              <label for="profile-username">Username</label>
-              <input id="profile-username" autocomplete="username" minlength="2" maxlength="40" required />
-            </div>
-            <div class="field">
-              <label for="profile-current-password">Current password</label>
-              <input id="profile-current-password" type="password" autocomplete="current-password" />
-            </div>
-            <div class="field">
-              <label for="profile-new-password">New password</label>
-              <input id="profile-new-password" type="password" autocomplete="new-password" minlength="8" />
-            </div>
-            <button class="primary" type="submit">Save account settings</button>
-            <div id="profile-status" class="settings-status" role="status" aria-live="polite"></div>
-          </form>
-        </div>
-      </main>
-    </section>
-
-    <script>
-      (() => {
-        const GROUPS = [
-          { id: 'rammerhead', label: 'Rammerhead' },
-          { id: 'ultraviolet', label: 'Ultraviolet' },
-          { id: 'scramjet', label: 'Scramjet' },
-          { id: 'games', label: 'Games' },
-          { id: 'online', label: 'Online tools' }
-        ];
-
-        const state = {
-          mode: 'login',
-          activePage: 'proxy',
-          sessionUser: null,
-          accounts: [],
-          invites: [],
-          games: [],
-          domains: {
-            rammerhead: [],
-            ultraviolet: [],
-            scramjet: [],
-            games: [],
-            online: []
-          }
-        };
-
-        const $ = (selector, root = document) => root.querySelector(selector);
-        const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
-        const api = async (url, options = {}) => {
-          const response = await fetch(url, {
-            credentials: 'same-origin',
-            ...options,
-            headers: { 'Content-Type': 'application/json', ...options.headers }
-          });
-          const result = await response.json().catch(() => ({}));
-          if (!response.ok) throw new Error(result.error || 'Request failed.');
-          return result;
-        };
-
-        const setAuthMessage = (message, kind = 'error') => {
-          const el = $('#auth-message');
-          el.textContent = message || '';
-          el.classList.remove('error', 'success');
-          if (message) el.classList.add(kind === 'success' ? 'success' : 'error');
-        };
-
-        function currentUser() { return state.sessionUser; }
-
-        function setTab(tabName) {
-          state.mode = tabName;
-          $$('.tab').forEach((button) => button.classList.toggle('active', button.dataset.mode === tabName));
-          const showSignup = tabName === 'signup';
-          $('#signup-code-wrap').classList.toggle('hidden', !showSignup);
-          $('#signup-code').required = showSignup;
-          $('#auth-title').textContent = showSignup ? 'Create your account' : 'Welcome back';
-          $('#auth-lead').textContent = showSignup ? 'Create a new account with a one-time admin-issued code.' : 'Sign in to continue to your proxy desk.';
-          $('#auth-submit').textContent = showSignup ? 'Create account' : 'Sign in';
-          $('#password').autocomplete = showSignup ? 'new-password' : 'current-password';
-          setAuthMessage('');
-        }
-
-        function escapeHTML(value) {
-          return String(value ?? '').replace(/[&<>"']/g, (character) => ({
-            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-          })[character]);
-        }
-
-        function renderPage(pageName) {
-          const user = currentUser();
-          const allowedPages = user?.role === 'admin'
-            ? ['proxy', 'games', 'accounts', 'settings']
-            : ['proxy', 'games', 'user-settings'];
-          if (!allowedPages.includes(pageName)) pageName = user?.role === 'admin' ? 'proxy' : 'proxy';
-          state.activePage = pageName;
-          $$('.nav-item').forEach((button) => button.classList.toggle('active', button.dataset.page === pageName));
-          const pages = {
-            proxy: 'proxy-page',
-            games: 'games-page',
-            accounts: 'accounts-page',
-            settings: 'settings-page',
-            'user-settings': 'user-settings-page'
-          };
-          Object.values(pages).forEach((id) => {
-            const page = $('#' + id);
-            if (page) page.classList.toggle('hidden', id !== pages[pageName]);
-          });
-          $('#crumb-title').textContent = {
-            proxy: 'Proxy desk',
-            games: 'Games',
-            accounts: 'Accounts',
-            settings: 'Settings',
-            'user-settings': 'User settings'
-          }[pageName] || 'Proxy desk';
-        }
-
-        function renderEngineCards(bestId = '') {
-          const cards = [
-            { id: 'rammerhead', label: 'Rammerhead', desc: 'Fast session-based browsing engine.' },
-            { id: 'ultraviolet', label: 'Ultraviolet', desc: 'Stable proxy route for regular browsing.' },
-            { id: 'scramjet', label: 'Scramjet', desc: 'Lightweight route for quick launches.' }
-          ];
-
-          $('#engine-grid').innerHTML = cards.map((card) => {
-            const count = (state.domains[card.id] || []).length;
-            const status = count ? `${count} configured` : 'Not configured';
-            const health = count ? 'online' : 'offline';
-            const selected = bestId === card.id ? 'selected' : '';
-            return `
-              <article class="engine-card ${selected}">
-                <div class="card-meta">
-                  <span>engine / ${String(cards.indexOf(card) + 1).padStart(2, '0')}</span>
-                  <span id="health-${card.id}" class="health ${health}">${status}</span>
-                </div>
-                <h3>${card.label}</h3>
-                <p>${card.desc}</p>
-                <div class="engine-actions">
-                  <span class="muted">${bestId === card.id ? 'Fastest healthy route' : count ? 'Available to auto-pick' : 'Add a route in admin settings'}</span>
-                </div>
-              </article>
-            `;
-          }).join('');
-        }
-
-        function renderDomainConfig() {
-          $('#domain-config').innerHTML = GROUPS.map((group) => `
-            <section class="panel">
-              <div class="small-label">${group.label}</div>
-              <h2 style="margin-top: 0.6rem; font-size: 1.5rem;">${group.label}</h2>
-              <textarea data-domain-group="${group.id}" placeholder="https://health.example/check | https://launch.example/proxy/{url}">${escapeHTML((state.domains[group.id] || []).map((entry) => `${entry.health} | ${entry.launch}`).join('\n'))}</textarea>
-            </section>
-          `).join('');
-        }
-
-        function renderDiscoverStatus() {
-          $('#games-status').textContent = `${state.games.length} ${state.games.length === 1 ? 'game' : 'games'}`;
-          $('#online-status').textContent = `${(state.domains.online || []).length} configured`;
-        }
-
-        function gameIconMarkup(game) {
-          const icon = String(game.icon || '🎮');
-          if (/^https?:\/\//i.test(icon)) {
-            return `<img class="game-icon" src="${escapeHTML(icon)}" alt="" loading="lazy" />`;
-          }
-          return `<span class="game-icon" aria-hidden="true">${escapeHTML(icon)}</span>`;
-        }
-
-        function renderGameCatalog() {
-          const query = $('#game-search').value.trim().toLowerCase();
-          const games = state.games.filter((game) => game.name.toLowerCase().includes(query));
-          const grid = $('#game-grid');
-          if (!games.length) {
-            grid.innerHTML = `<div class="empty-state">${state.games.length ? 'No games match your search.' : 'No games have been added yet.'}</div>`;
-            return;
-          }
-          grid.innerHTML = games.map((game) => `
-            <article class="game-card">
-              ${gameIconMarkup(game)}
-              <div class="game-copy"><h3>${escapeHTML(game.name)}</h3></div>
-              <button class="secondary" data-open-game="${escapeHTML(game.id)}" type="button">Open game</button>
-            </article>
-          `).join('');
-        }
-
-        function renderGameAdminList() {
-          const list = $('#game-admin-list');
-          if (!list) return;
-          if (!state.games.length) {
-            list.innerHTML = '<div class="empty-state">No games in the catalog.</div>';
-            return;
-          }
-          list.innerHTML = state.games.map((game) => `
-            <div class="game-admin-row" data-game-id="${escapeHTML(game.id)}">
-              <input data-game-name aria-label="Game name" value="${escapeHTML(game.name)}" maxlength="60" />
-              <input data-game-url aria-label="Game URL" type="url" value="${escapeHTML(game.url)}" />
-              <input data-game-icon aria-label="Game icon" value="${escapeHTML(game.icon || '')}" maxlength="120" />
-              <button class="secondary" data-game-save type="button">Save</button>
-              <button class="secondary danger-button" data-game-delete type="button">Delete</button>
-            </div>
-          `).join('');
-        }
-
-        function renderInviteList() {
-          const list = $('#invite-list');
-          if (!list) return;
-          if (!state.invites.length) {
-            list.innerHTML = '<div class="empty-state">No invite codes have been issued yet.</div>';
-            return;
-          }
-          list.innerHTML = state.invites.map((entry) => {
-            const uses = entry.uses || [];
-            const expired = entry.expiresAt && Date.parse(entry.expiresAt) <= Date.now();
-            const exhausted = uses.length >= entry.maxUses;
-            const status = entry.revoked ? 'Revoked' : expired ? 'Expired' : exhausted ? 'Fully used' : 'Available';
-            return `
-            <div class="invite-item">
-              <div class="invite-details">
-                <strong>${escapeHTML(entry.code)}</strong>
-                <span class="invite-meta">${uses.length} / ${entry.maxUses} uses${entry.expiresAt ? ` · expires ${escapeHTML(new Date(entry.expiresAt).toLocaleString())}` : ' · no expiry'}</span>
-              </div>
-              <span class="${status === 'Available' ? '' : 'used'}">${status}</span>
-              ${entry.revoked ? '' : `<button class="secondary danger-button" data-revoke-invite="${escapeHTML(entry.id)}" type="button">Revoke</button>`}
-            </div>
-          `;
-          }).join('');
-        }
-
-        function renderAccounts() {
-          const list = $('#account-list');
-          if (!list) return;
-          if (!state.accounts.length) {
-            list.innerHTML = '<div class="empty-state">No accounts yet.</div>';
-            return;
-          }
-          list.innerHTML = state.accounts.map((account) => `
-            <article class="account-row" data-account-id="${escapeHTML(account.id)}">
-              <div class="account-info">
-                <strong>${escapeHTML(account.username)}</strong>
-                <span>${account.role === 'admin' ? 'Admin' : 'Member'} · ${account.locked ? 'Locked' : 'Active'}</span>
-              </div>
-              <div class="account-controls">
-                <input data-account-username aria-label="Username" value="${escapeHTML(account.username)}" maxlength="40" />
-                <input data-account-password aria-label="New password" type="password" placeholder="Set new password" autocomplete="new-password" />
-                <button class="secondary" data-account-save type="button">Save</button>
-              </div>
-              <div class="account-actions">
-                <button class="secondary" data-account-lock="${!account.locked}" type="button">${account.locked ? 'Unlock' : 'Lock'}</button>
-                <button class="secondary danger-button" data-account-delete type="button">Delete</button>
-              </div>
-            </article>
-          `).join('');
-        }
-
-        function parseDomainEntries(rawText) {
-          return rawText
-            .split(/\r?\n/)
-            .map((line) => line.trim())
-            .filter(Boolean)
-            .map((line, index) => {
-              const parts = line.split('|').map((part) => part.trim());
-              if (parts.length !== 2 || !parts[0] || !parts[1]) {
-                throw new Error(`Line ${index + 1}: use the format health | launch.`);
-              }
-              try {
-                new URL(parts[0]);
-                new URL(parts[1].replace('{url}', 'https%3A%2F%2Fexample.com'));
-              } catch {
-                throw new Error(`Line ${index + 1}: invalid URL or launch template.`);
-              }
-              return { health: parts[0], launch: parts[1] };
-            });
-        }
-
-        async function saveDomains() {
-          try {
-            const next = {};
-            GROUPS.forEach((group) => {
-              const textarea = $(`[data-domain-group="${group.id}"]`);
-              next[group.id] = textarea ? parseDomainEntries(textarea.value) : [];
-            });
-            const result = await api('/api/settings/domains', { method: 'PUT', body: JSON.stringify({ domains: next }) });
-            state.domains = result.domains;
-            $('#domain-status').textContent = 'Saved successfully.';
-            renderEngineCards();
-            renderDiscoverStatus();
-          } catch (error) {
-            $('#domain-status').textContent = error.message;
-          }
-        }
-
-        async function launchUrlFor(row, target = '', engine = '') {
-          if (engine === 'rammerhead') {
-            const result = await api('/api/proxy/rammerhead/launch', {
-              method: 'POST',
-              body: JSON.stringify({ target: target || 'https://example.com' })
-            });
-            return result.url;
-          }
-          const encodedTarget = encodeURIComponent(target || 'https://example.com');
-          return row.launch.includes('{url}')
-            ? row.launch.replace('{url}', encodedTarget)
-            : `${row.launch}${target ? (row.launch.includes('?') ? '&' : '?') + 'q=' + encodedTarget : ''}`;
-        }
-
-        async function resolveFastestRoute(groupIds, target = '') {
-          const health = await api(`/api/settings/domains/health?groups=${encodeURIComponent(groupIds.join(','))}`);
-          const fastest = health.results.filter((result) => result.latency !== null).sort((left, right) => left.latency - right.latency)[0];
-          if (!fastest) throw new Error('No healthy route responded.');
-          const row = (state.domains[fastest.groupId] || [])[fastest.index];
-          if (!row) throw new Error('The selected proxy route is no longer configured.');
-          renderEngineCards(fastest.groupId);
-          return { url: await launchUrlFor(row, target, fastest.groupId), groupId: fastest.groupId, latency: fastest.latency };
-        }
-
-        async function resolveGroupRoute(groupId, target = '') {
-          const health = await api(`/api/settings/domains/health?groups=${encodeURIComponent(groupId)}`);
-          const fastest = health.results.filter((result) => result.latency !== null).sort((left, right) => left.latency - right.latency)[0];
-          if (fastest) {
-            const row = (state.domains[groupId] || [])[fastest.index];
-            if (row) return launchUrlFor(row, target, groupId);
-          }
-          throw new Error('No healthy domain responded for this group.');
-        }
-
-        async function handleLaunch() {
-          const target = $('#target-url').value.trim();
-          if (!target) {
-            $('#target-url').focus();
-            return;
-          }
-          const tab = window.open('about:blank', '_blank');
-          if (!tab) return alert('Allow pop-ups for Polaris to open the proxy route.');
-          try {
-            const route = await resolveFastestRoute(['rammerhead', 'ultraviolet', 'scramjet'], target);
-            tab.location.replace(route.url);
-          } catch (error) {
-            tab.close();
-            alert(error.message || 'No healthy route is available.');
-          }
-        }
-
-        async function handleCategoryLaunch(event) {
-          const group = event.currentTarget.dataset.discover;
-          const tab = window.open('about:blank', '_blank');
-          if (!tab) return alert('Allow pop-ups for Polaris to open this route.');
-          try {
-            const url = await resolveGroupRoute(group);
-            tab.location.replace(url);
-          } catch (error) {
-            tab.close();
-            alert(error.message || 'No healthy route is available for this group.');
-          }
-        }
-
-        async function handleAuthSubmit(event) {
-          event.preventDefault();
-          const username = $('#username').value.trim();
-          const password = $('#password').value;
-          const button = $('#auth-submit');
-          button.disabled = true;
-
-          try {
-            if (!username || !password) throw new Error('Username and password are required.');
-            const signup = state.mode === 'signup';
-            const body = signup
-              ? {
-                  username,
-                  password,
-                  inviteCode: $('#signup-code').value.trim()
-                }
-              : { username, password };
-            const result = await api(signup ? '/api/auth/signup' : '/api/auth/login', {
-              method: 'POST',
-              body: JSON.stringify(body)
-            });
-            state.sessionUser = result.user;
-            $('#auth-form').reset();
-            await renderShell();
-          } catch (error) {
-            setAuthMessage(error.message || 'Unable to complete the request.', 'error');
-          } finally {
-            button.disabled = false;
-          }
-        }
-
-        async function renderShell() {
-          const session = await api('/api/session');
-          state.sessionUser = session.user;
-          const user = currentUser();
-          const loggedIn = !!user;
-          $('#auth-screen').classList.toggle('hidden', loggedIn);
-          $('#app-screen').classList.toggle('hidden', !loggedIn);
-
-          if (!loggedIn) {
-            setTab(state.mode);
-            return;
-          }
-
-          $('#sidebar-username').textContent = user.username;
-          $('#user-role').textContent = user.role === 'admin' ? 'Admin' : 'Member';
-          $('#user-avatar').textContent = user.username.slice(0, 1).toUpperCase();
-          $$('.admin-only').forEach((item) => item.classList.toggle('hidden', user.role !== 'admin'));
-          $$('.member-only').forEach((item) => item.classList.toggle('hidden', user.role === 'admin'));
-          const [domainResult, accountResult, inviteResult, gameResult] = await Promise.all([
-            api('/api/settings/domains'),
-            user.role === 'admin' ? api('/api/accounts') : Promise.resolve({ accounts: [] }),
-            user.role === 'admin' ? api('/api/invites') : Promise.resolve({ invites: [] }),
-            api('/api/games')
-          ]);
-          state.domains = { ...state.domains, ...domainResult.domains };
-          state.accounts = accountResult.accounts;
-          state.invites = inviteResult.invites;
-          state.games = gameResult.games;
-          $('#profile-username').value = user.username;
-          renderPage(state.activePage);
-          renderEngineCards();
-          renderDomainConfig();
-          renderInviteList();
-          renderAccounts();
-          renderGameCatalog();
-          renderGameAdminList();
-          renderDiscoverStatus();
-        }
-
-        async function addGame(event) {
-          event.preventDefault();
-          const status = $('#game-admin-status');
-          try {
-            await api('/api/games', {
-              method: 'POST',
-              body: JSON.stringify({
-                name: $('#game-name').value.trim(),
-                url: $('#game-url').value.trim(),
-                icon: $('#game-icon').value.trim()
-              })
-            });
-            $('#game-form').reset();
-            state.games = (await api('/api/games')).games;
-            renderGameCatalog();
-            renderGameAdminList();
-            renderDiscoverStatus();
-            status.textContent = 'Game added to the catalog.';
-          } catch (error) {
-            status.textContent = error.message;
-          }
-        }
-
-        async function handleGameAdminAction(event) {
-          const button = event.target.closest('button');
-          const row = button?.closest('[data-game-id]');
-          if (!button || !row) return;
-          const id = row.dataset.gameId;
-          const status = $('#game-admin-status');
-          try {
-            if (button.hasAttribute('data-game-save')) {
-              await api(`/api/games/${encodeURIComponent(id)}`, {
-                method: 'PATCH',
-                body: JSON.stringify({
-                  name: $('[data-game-name]', row).value.trim(),
-                  url: $('[data-game-url]', row).value.trim(),
-                  icon: $('[data-game-icon]', row).value.trim()
-                })
-              });
-              status.textContent = 'Game updated.';
-            } else if (button.hasAttribute('data-game-delete')) {
-              if (!window.confirm('Remove this game from the catalog?')) return;
-              await api(`/api/games/${encodeURIComponent(id)}`, { method: 'DELETE' });
-              status.textContent = 'Game removed.';
-            } else {
-              return;
-            }
-            state.games = (await api('/api/games')).games;
-            renderGameCatalog();
-            renderGameAdminList();
-            renderDiscoverStatus();
-          } catch (error) {
-            status.textContent = error.message;
-          }
-        }
-
-        function openGame(event) {
-          const button = event.target.closest('[data-open-game]');
-          if (!button) return;
-          const game = state.games.find((entry) => entry.id === button.dataset.openGame);
-          if (!game) return;
-          try {
-            const url = new URL(game.url);
-            if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Invalid game URL.');
-            window.open(url.href, '_blank', 'noopener,noreferrer');
-          } catch {
-            alert('This game has an invalid URL. Ask an administrator to update it.');
-          }
-        }
-
-        async function autoConfigureProxy() {
-          const button = $('#auto-configure-proxy');
-          const status = $('#proxy-config-status');
-          const proxyGroups = ['rammerhead', 'ultraviolet', 'scramjet'];
-          button.disabled = true;
-          status.textContent = 'Detecting deployment address and checking routes…';
-          try {
-            const nextDomains = {};
-            GROUPS.forEach((group) => {
-              const textarea = $(`[data-domain-group="${group.id}"]`);
-              nextDomains[group.id] = textarea ? parseDomainEntries(textarea.value) : [];
-            });
-            const result = await api('/api/settings/domains/auto-configure', {
-              method: 'POST',
-              body: JSON.stringify({ domains: nextDomains })
-            });
-            state.domains = { ...state.domains, ...result.domains };
-            renderDomainConfig();
-            renderEngineCards(result.fastest?.groupId || '');
-            const fastest = result.fastest;
-            status.textContent = fastest
-              ? `${result.runtime.deployment} ${result.runtime.origin}; updated ${result.rebasedCount} local launch route(s). ${fastest.groupId} is fastest at ${Math.round(fastest.latency)} ms.`
-              : `${result.runtime.deployment} ${result.runtime.origin}; updated ${result.rebasedCount} local launch route(s). No route responded, so fallback order was preserved.`;
-          } catch (error) {
-            status.textContent = error.message;
-          } finally {
-            button.disabled = false;
-          }
-        }
-
-        async function createInviteCode(event) {
-          event.preventDefault();
-          const status = $('#invite-status');
-          try {
-            const expiresInHours = $('#invite-no-expiry').checked ? null : Number($('#invite-expiry').value);
-            const result = await api('/api/invites', {
-              method: 'POST',
-              body: JSON.stringify({ expiresInHours, maxUses: Number($('#invite-uses').value) })
-            });
-            $('#invite-code').textContent = result.invite.code;
-            $('#invite-result').classList.remove('hidden');
-            state.invites = (await api('/api/invites')).invites;
-            renderInviteList();
-            status.textContent = 'Invite created. Share this code with the new member.';
-          } catch (error) {
-            status.textContent = error.message;
-          }
-        }
-
-        async function copyInviteCode() {
-          try {
-            await navigator.clipboard.writeText($('#invite-code').textContent);
-            $('#copy-code').textContent = 'Copied';
-          } catch {
-            $('#copy-code').textContent = 'Copy failed';
-          }
-        }
-
-        async function handleAccountAction(event) {
-          const button = event.target.closest('button');
-          const row = button?.closest('[data-account-id]');
-          if (!button || !row) return;
-          const id = row.dataset.accountId;
-          const status = $('#account-status');
-          try {
-            if (button.hasAttribute('data-account-save')) {
-              const body = { username: $('[data-account-username]', row).value.trim() };
-              const password = $('[data-account-password]', row).value;
-              if (password) body.password = password;
-              await api(`/api/accounts/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) });
-              status.textContent = 'Account updated.';
-            } else if (button.hasAttribute('data-account-lock')) {
-              await api(`/api/accounts/${encodeURIComponent(id)}`, {
-                method: 'PATCH',
-                body: JSON.stringify({ locked: button.dataset.accountLock === 'true' })
-              });
-              status.textContent = button.dataset.accountLock === 'true' ? 'Account locked.' : 'Account unlocked.';
-            } else if (button.hasAttribute('data-account-delete')) {
-              if (!window.confirm('Delete this account permanently?')) return;
-              await api(`/api/accounts/${encodeURIComponent(id)}`, { method: 'DELETE' });
-              status.textContent = 'Account deleted.';
-            } else {
-              return;
-            }
-            state.accounts = (await api('/api/accounts')).accounts;
-            renderAccounts();
-          } catch (error) {
-            status.textContent = error.message;
-          }
-        }
-
-        async function handleRevokeInvite(event) {
-          const button = event.target.closest('[data-revoke-invite]');
-          if (!button) return;
-          try {
-            await api(`/api/invites/${encodeURIComponent(button.dataset.revokeInvite)}`, { method: 'DELETE' });
-            state.invites = (await api('/api/invites')).invites;
-            renderInviteList();
-            $('#invite-status').textContent = 'Invite revoked.';
-          } catch (error) {
-            $('#invite-status').textContent = error.message;
-          }
-        }
-
-        async function saveProfile(event) {
-          event.preventDefault();
-          const status = $('#profile-status');
-          const body = { username: $('#profile-username').value.trim() };
-          const newPassword = $('#profile-new-password').value;
-          if (newPassword) {
-            body.currentPassword = $('#profile-current-password').value;
-            body.password = newPassword;
-          }
-          try {
-            const result = await api('/api/profile', { method: 'PATCH', body: JSON.stringify(body) });
-            state.sessionUser = result.user;
-            $('#profile-current-password').value = '';
-            $('#profile-new-password').value = '';
-            $('#sidebar-username').textContent = result.user.username;
-            $('#user-avatar').textContent = result.user.username.slice(0, 1).toUpperCase();
-            status.textContent = 'Account settings saved.';
-          } catch (error) {
-            status.textContent = error.message;
-          }
-        }
-
-        $('#auth-form').addEventListener('submit', handleAuthSubmit);
-        $$('.tab').forEach((button) => button.addEventListener('click', () => setTab(button.dataset.mode)));
-        $$('.nav-item').forEach((button) => button.addEventListener('click', () => renderPage(button.dataset.page)));
-        $('#launch-btn').addEventListener('click', handleLaunch);
-        $('#save-domains').addEventListener('click', saveDomains);
-        $('#auto-configure-proxy').addEventListener('click', autoConfigureProxy);
-        $('#game-form').addEventListener('submit', addGame);
-        $('#game-search').addEventListener('input', renderGameCatalog);
-        $('#game-grid').addEventListener('click', openGame);
-        $('#game-admin-list').addEventListener('click', handleGameAdminAction);
-        $('#invite-form').addEventListener('submit', createInviteCode);
-        $('#copy-code').addEventListener('click', copyInviteCode);
-        $('#account-list').addEventListener('click', handleAccountAction);
-        $('#invite-list').addEventListener('click', handleRevokeInvite);
-        $('#profile-form').addEventListener('submit', saveProfile);
-        $('#invite-no-expiry').addEventListener('change', (event) => {
-          $('#invite-expiry').disabled = event.currentTarget.checked;
-        });
-        $('#signout').addEventListener('click', async () => {
-          await api('/api/auth/logout', { method: 'POST', body: '{}' });
-          state.sessionUser = null;
-          state.activePage = 'proxy';
-          renderShell().catch((error) => setAuthMessage(error.message));
-        });
-        $$('[data-discover]').forEach((button) => button.addEventListener('click', handleCategoryLaunch));
-
-        renderShell().catch((error) => setAuthMessage(error.message || 'Unable to connect to Polaris.'));
-      })();
-    </script>
+    <script type="module" src="/src/main.tsx"></script>
+    <div class="education-is-key" aria-hidden="true">
+      <h1>Educational Resources and Online Learning Platform</h1>
+      <p>
+        Comprehensive education platform for students, teachers, and lifelong
+        learners. Access online courses, study materials, exam preparation
+        resources, and interactive learning tools.
+      </p>
+      <section>
+        <h2>Academic Subjects</h2>
+        <p>
+          Mathematics, Science, English, History, Literature, Writing, Reading,
+          Social Studies, Geography, Biology, Chemistry, Physics, Algebra,
+          Geometry, Calculus, Statistics, Computer Science, Programming, Foreign
+          Languages, Art, Music
+        </p>
+      </section>
+      <section>
+        <h2>Educational Services</h2>
+        <p>
+          Online courses, college credit, exam preparation, test prep, tutoring,
+          homework help, study guides, practice tests, educational videos,
+          interactive lessons, learning resources, curriculum development,
+          academic support, student success, teacher resources, educational
+          technology, e-learning, distance education, virtual classroom, online
+          tutoring, academic coaching
+        </p>
+      </section>
+      <section>
+        <h2>Student Levels</h2>
+        <p>
+          K-12 education, elementary school, middle school, high school,
+          college, university, graduate school, continuing education, adult
+          learning, professional development, certification programs, degree
+          programs, homeschool education
+        </p>
+      </section>
+      <section>
+        <h2>Test Preparation</h2>
+        <p>
+          SAT prep, ACT prep, GRE prep, GMAT prep, LSAT prep, MCAT prep, AP
+          courses, Advanced Placement, standardized tests, college entrance
+          exams, professional certification exams, state assessments, final
+          exams, midterms
+        </p>
+      </section>
+      <section>
+        <h3>Learning Methods</h3>
+        <p>
+          Interactive learning, video lessons, practice quizzes, flashcards,
+          study notes, educational games, adaptive learning, personalized
+          education, self-paced learning, collaborative learning, project-based
+          learning, STEM education, critical thinking, problem solving
+        </p>
+      </section>
+    </div>
+    <div class="education-is-key" aria-hidden="true">
+      <h1>Educational Resources and Online Learning Platform</h1>
+      <p>
+        Comprehensive education platform for students, teachers, and lifelong
+        learners. Access online courses, study materials, exam preparation
+        resources, and interactive learning tools.
+      </p>
+      <section>
+        <h2>Academic Subjects</h2>
+        <p>
+          Mathematics, Science, English, History, Literature, Writing, Reading,
+          Social Studies, Geography, Biology, Chemistry, Physics, Algebra,
+          Geometry, Calculus, Statistics, Computer Science, Programming, Foreign
+          Languages, Art, Music
+        </p>
+      </section>
+      <section>
+        <h2>Educational Services</h2>
+        <p>
+          Online courses, college credit, exam preparation, test prep, tutoring,
+          homework help, study guides, practice tests, educational videos,
+          interactive lessons, learning resources, curriculum development,
+          academic support, student success, teacher resources, educational
+          technology, e-learning, distance education, virtual classroom, online
+          tutoring, academic coaching
+        </p>
+      </section>
+      <section>
+        <h2>Student Levels</h2>
+        <p>
+          K-12 education, elementary school, middle school, high school,
+          college, university, graduate school, continuing education, adult
+          learning, professional development, certification programs, degree
+          programs, homeschool education
+        </p>
+      </section>
+      <section>
+        <h2>Test Preparation</h2>
+        <p>
+          SAT prep, ACT prep, GRE prep, GMAT prep, LSAT prep, MCAT prep, AP
+          courses, Advanced Placement, standardized tests, college entrance
+          exams, professional certification exams, state assessments, final
+          exams, midterms
+        </p>
+      </section>
+      <section>
+        <h3>Learning Methods</h3>
+        <p>
+          Interactive learning, video lessons, practice quizzes, flashcards,
+          study notes, educational games, adaptive learning, personalized
+          education, self-paced learning, collaborative learning, project-based
+          learning, STEM education, critical thinking, problem solving
+        </p>
+      </section>
+    </div>
+    <div class="education-is-key" aria-hidden="true">
+      <h1>Educational Resources and Online Learning Platform</h1>
+      <p>
+        Comprehensive education platform for students, teachers, and lifelong
+        learners. Access online courses, study materials, exam preparation
+        resources, and interactive learning tools.
+      </p>
+      <section>
+        <h2>Academic Subjects</h2>
+        <p>
+          Mathematics, Science, English, History, Literature, Writing, Reading,
+          Social Studies, Geography, Biology, Chemistry, Physics, Algebra,
+          Geometry, Calculus, Statistics, Computer Science, Programming, Foreign
+          Languages, Art, Music
+        </p>
+      </section>
+      <section>
+        <h2>Educational Services</h2>
+        <p>
+          Online courses, college credit, exam preparation, test prep, tutoring,
+          homework help, study guides, practice tests, educational videos,
+          interactive lessons, learning resources, curriculum development,
+          academic support, student success, teacher resources, educational
+          technology, e-learning, distance education, virtual classroom, online
+          tutoring, academic coaching
+        </p>
+      </section>
+      <section>
+        <h2>Student Levels</h2>
+        <p>
+          K-12 education, elementary school, middle school, high school,
+          college, university, graduate school, continuing education, adult
+          learning, professional development, certification programs, degree
+          programs, homeschool education
+        </p>
+      </section>
+      <section>
+        <h2>Test Preparation</h2>
+        <p>
+          SAT prep, ACT prep, GRE prep, GMAT prep, LSAT prep, MCAT prep, AP
+          courses, Advanced Placement, standardized tests, college entrance
+          exams, professional certification exams, state assessments, final
+          exams, midterms
+        </p>
+      </section>
+      <section>
+        <h3>Learning Methods</h3>
+        <p>
+          Interactive learning, video lessons, practice quizzes, flashcards,
+          study notes, educational games, adaptive learning, personalized
+          education, self-paced learning, collaborative learning, project-based
+          learning, STEM education, critical thinking, problem solving
+        </p>
+      </section>
+    </div>
+    <div class="education-is-key" aria-hidden="true">
+      <h1>Educational Resources and Online Learning Platform</h1>
+      <p>
+        Comprehensive education platform for students, teachers, and lifelong
+        learners. Access online courses, study materials, exam preparation
+        resources, and interactive learning tools.
+      </p>
+      <section>
+        <h2>Academic Subjects</h2>
+        <p>
+          Mathematics, Science, English, History, Literature, Writing, Reading,
+          Social Studies, Geography, Biology, Chemistry, Physics, Algebra,
+          Geometry, Calculus, Statistics, Computer Science, Programming, Foreign
+          Languages, Art, Music
+        </p>
+      </section>
+      <section>
+        <h2>Educational Services</h2>
+        <p>
+          Online courses, college credit, exam preparation, test prep, tutoring,
+          homework help, study guides, practice tests, educational videos,
+          interactive lessons, learning resources, curriculum development,
+          academic support, student success, teacher resources, educational
+          technology, e-learning, distance education, virtual classroom, online
+          tutoring, academic coaching
+        </p>
+      </section>
+      <section>
+        <h2>Student Levels</h2>
+        <p>
+          K-12 education, elementary school, middle school, high school,
+          college, university, graduate school, continuing education, adult
+          learning, professional development, certification programs, degree
+          programs, homeschool education
+        </p>
+      </section>
+      <section>
+        <h2>Test Preparation</h2>
+        <p>
+          SAT prep, ACT prep, GRE prep, GMAT prep, LSAT prep, MCAT prep, AP
+          courses, Advanced Placement, standardized tests, college entrance
+          exams, professional certification exams, state assessments, final
+          exams, midterms
+        </p>
+      </section>
+      <section>
+        <h3>Learning Methods</h3>
+        <p>
+          Interactive learning, video lessons, practice quizzes, flashcards,
+          study notes, educational games, adaptive learning, personalized
+          education, self-paced learning, collaborative learning, project-based
+          learning, STEM education, critical thinking, problem solving
+        </p>
+      </section>
+    </div>
   </body>
 </html>
